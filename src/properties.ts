@@ -4,8 +4,8 @@ This is, for a given oracle, designed to test whether
 1. Range. For R(a:b, delta), the output should satisfy one of
   a. (1, c:d) c:d is a subinterval of the delta-neighborhood of a:b and intersects a:b
   b. (0, c:d) c:d is disjoint from a:b
-  c. (0, null). There exists a delta' such that no prophecy intersects a:b and is contained in the delta'-neighborhood a:b. This allows for not computing a prophecy such as when directly checking if an interval works.
-  d. (-1, null). This should not happen for an infinitely capable system. Here it is a flag that a computational limit has been reached and none of the three items above have been established. Formally, this is an option of there being no
+  c. (0). There exists a delta' such that no prophecy intersects a:b and is contained in the delta'-neighborhood a:b. This allows for not computing a prophecy such as when directly checking if an interval works.
+  d. (-1). This should not happen for an infinitely capable system. Here it is a flag that a computational limit has been reached and none of the three items above have been established. Formally, this is an option of there being no
 2. Existence. There should be an interval a:b and delta such that R(a:b, delta) = (1, c:d) for some interval c:d. It is reasonable in a practical system to have R(c:d, delta) = (1, c:d) holding true. The third argument can hold a prophecy which can satisfy this in a minimal way.
 3. Separation. Given any prophecy c:d and m contained in c:d and a delta > 0, then at least one of the following holds true: R(c:m, delta) = 1 or R(m:d, delta)=1.
 4. Disjointness. If c:d is a prophecy and a:b is disjoint from c:d and delta is less than the distance between c:d and a:b, then R(a:b, delta) does not have an output containing 1.
