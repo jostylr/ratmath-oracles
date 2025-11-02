@@ -2,7 +2,7 @@ import { describe, it, expect, mock } from 'bun:test';
 import { add, subtract, multiply, divide } from '../src/arithmetic';
 import { fromRational, fromInterval } from '../src/functions';
 import { makeRational, toNumber } from '../src/ops';
-import { RationalInterval } from 'ratmath';
+import { RationalInterval } from '../src/ratmath';
 import { setLogger } from '../src/logger';
 
 describe('arithmetic oracles', () => {

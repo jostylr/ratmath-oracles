@@ -1,6 +1,6 @@
-import { type Oracle, type Rational, type RationalInterval, type Answer } from './types';
+import { type Oracle, type Answer, type RationalInterval } from './types';
+import { Rational, RationalInterval as RMInterval } from './ratmath';
 import { intersect, normalizeInterval, withinDelta, makeRational } from './ops';
-import { Rational, RationalInterval as RMInterval } from 'ratmath';
 
 export type ComputeFnWithState = ((ab: RationalInterval, delta: Rational) => RationalInterval) & {
   internal?: Record<string, unknown>;
@@ -18,10 +18,10 @@ function makeOracle(
       const interYT = intersect(currentYes, target);
       if (interYT) {
         // Do not mutate yes; return currentYes as cd
-        return { ans: true, cd: currentYes };
+        return { ans: 1, cd: currentYes };
       }
       // No intersection; answer is false, do not change yes
-      return { ans: false, cd: currentYes };
+      return { ans: 0, cd: currentYes };
     }
 
     // Compute prophecy and intersect with current yes; update yes to intersection when possible
@@ -32,10 +32,10 @@ function makeOracle(
       (fn as Oracle).yes = refined; // Only update yes when compute is called and intersection exists
       const interWithTarget = intersect(refined, target);
       const ans = !!interWithTarget && withinDelta(refined, target, delta);
-      return { ans, cd: refined };
+      return { ans: ans ? 1 : 0, cd: refined };
     }
     // No intersection: leave yes unchanged and report based on current state
-    return { ans: false, cd: currentYes };
+    return { ans: 0, cd: currentYes };
   }) as Oracle;
   fn.yes = normalizeInterval(yes);
   return fn;

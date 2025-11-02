@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'bun:test';
 import { makeRational } from '../src/ops';
-import { Rational, RationalInterval } from 'ratmath';
+import { Rational, RationalInterval } from '../src/ratmath';
 import { fromInterval, makeCustomOracle } from '../src/functions';
 
 function interval(a: number, b: number): RationalInterval {
@@ -16,7 +16,7 @@ describe('makeOracle behavior', () => {
     const delta = new Rational(0 as any);
     const ans = o(target, delta);
     // Should be early-return: withinDelta(currentYes,target,delta) true and intersects
-    expect(ans.ans).toBe(true);
+    expect(ans.ans).toBe(1);
     expect(ans.cd.low.equals(before.low)).toBe(true);
     expect(ans.cd.high.equals(before.high)).toBe(true);
     // yes should be unchanged
@@ -51,8 +51,8 @@ describe('makeOracle behavior', () => {
     expect(ans.cd.low.equals(prophecyInterval.low)).toBe(true);
     expect(ans.cd.high.equals(prophecyInterval.high)).toBe(true);
 
-    // Since target is far away, ans may be false; we only care about yes/cd behavior
-    expect(typeof ans.ans).toBe('boolean');
+    // Since target is far away, ans may be 0; we only care about yes/cd behavior
+    expect(typeof ans.ans).toBe('number');
   });
 });
 

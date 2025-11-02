@@ -1,7 +1,7 @@
-import { type Oracle, type Rational, type RationalInterval, type Answer } from './types';
+import { type Oracle, type RationalInterval, type Answer } from './types';
+import { Rational, RationalInterval as RMInterval } from './ratmath';
 import { addIntervals, containsZero, divIntervals, makeRational, mulIntervals, normalizeInterval, subIntervals, toNumber, width, withinDelta, intersect } from './ops';
 import { getLogger } from './logger';
-import { Rational, RationalInterval as RMInterval } from 'ratmath';
 
 function makeOracle(
   yes: RationalInterval,
@@ -13,9 +13,9 @@ function makeOracle(
     if (withinDelta(currentYes, target, delta)) {
       const interYT = intersect(currentYes, target);
       if (interYT) {
-        return { ans: true, cd: currentYes };
+        return { ans: 1, cd: currentYes };
       }
-      return { ans: false, cd: currentYes };
+      return { ans: 0, cd: currentYes };
     }
     const prophecy = normalizeInterval(compute(target, delta));
     const interYY = intersect(prophecy, currentYes);
@@ -24,9 +24,9 @@ function makeOracle(
       (fn as Oracle).yes = refined;
       const interWithTarget = intersect(refined, target);
       const ans = !!interWithTarget && withinDelta(refined, target, delta);
-      return { ans, cd: refined };
+      return { ans: ans ? 1 : 0, cd: refined };
     }
-    return { ans: false, cd: currentYes };
+    return { ans: 0, cd: currentYes };
   }) as Oracle;
   fn.yes = normalizeInterval(yes);
   return fn;

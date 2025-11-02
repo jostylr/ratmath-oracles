@@ -1,4 +1,4 @@
-import { Rational, RationalInterval } from 'ratmath';
+import { Rational, RationalInterval } from './ratmath';
 
 export const ZERO: Rational = Rational.zero;
 

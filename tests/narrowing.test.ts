@@ -2,7 +2,7 @@ import { describe, it, expect } from 'bun:test';
 import { fromInterval, fromTestFunction } from '../src/functions';
 import { bisect, narrowWithCutter } from '../src/narrowing';
 import { makeRational, width } from '../src/ops';
-import { RationalInterval, Rational } from 'ratmath';
+import { RationalInterval, Rational } from '../src/ratmath';
 
 describe('narrowing', () => {
   it('bisect reduces interval width', () => {

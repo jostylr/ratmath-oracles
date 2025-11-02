@@ -4,3 +4,7 @@ export * from './src/ops';
 export * from './src/functions';
 export * from './src/arithmetic';
 export * from './src/narrowing';
+export * from './src/rationals';
+export * from './src/properties';
+export * from './src/helpers';
+export * from './src/ratmath';

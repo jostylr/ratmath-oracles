@@ -19,13 +19,16 @@
   "license": "MIT",
   "author": "jostylr",
   "type": "module",
-  "main": "index.tsx",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "directories": {
     "test": "tests"
   },
   "scripts": {
     "test": "bun test",
     "test:watch": "bun test --watch",
+    "build": "bun tsc",
+    "type-check": "bun tsc --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
@@ -33,6 +36,8 @@
     "ratmath": "git@github.com:jostylr/ratmath.git"
   },
   "devDependencies": {
-    "prettier": "^3.3.3"
+    "@types/node": "^24.9.2",
+    "prettier": "^3.3.3",
+    "typescript": "^5.9.3"
   }
 }

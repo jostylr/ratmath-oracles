@@ -15,8 +15,8 @@ This is, for a given oracle, designed to test whether
 
 */
 
-import { Rational, RationalInterval } from 'ratmath';
-import type { Answer, Oracle } from './types';
+import { Rational, RationalInterval } from './ratmath';
+import { Answer, Oracle, LegacyAnswer } from './types';
 
 
 const randomRational = (upperNumerator = 1000, upperDenominator = 100): Rational => {
@@ -29,16 +29,16 @@ const lengthScale = new Rational(1, 10); // Scale factor for delta computation
 
 /* this takes in an oracle, an interval and an optional delta, creating  a delta equal to one‑tenth of the interval's length if not present,
 and then invokes the oracle with that delta, returning its answer. */
-const helper = (R: Oracle, ab: RationalInterval, delta?: Rational): Answer => {
+const helper = (R: Oracle, ab: RationalInterval, delta?: Rational): LegacyAnswer => {
   if (delta) {
-    return R(ab, delta);
+    return R(ab, delta) as LegacyAnswer;
   }
   // Compute the length of the interval: (b - a)
   const length: Rational = ab.high.subtract(ab.low);
   // If the length is zero, set delta to randomRational()
   delta = length.equals(Rational.zero) ? randomRational() : length.multiply(lengthScale);
   // Run the oracle with the original interval and the computed delta.
-  return R(ab, delta);
+  return R(ab, delta) as LegacyAnswer;
 };
 
 /*Existence
@@ -113,7 +113,7 @@ const testDisjointness = (R: Oracle, {prophecy, disjoint, scale = lengthScale}: 
   // Delta is a scale of that distance.
   const delta: Rational = distance.multiply(scale);
   // Run the oracle with the disjoint interval and the computed delta.
-  const result = R(disjoint, delta);
+  const result = R(disjoint, delta) as LegacyAnswer;
   return result[0][0] !== 1;
 }
 
@@ -125,7 +125,7 @@ It checks if the test interval contains the prophecy interval and if so, ensures
 If the test interval does not contain the prophecy interval, it returns true by default.
 A delta value is optional, with the default computed as one-tenth of the test interval's length.
 */
- const testConsistency = (R: Oracle, {prophecy, testInterval, delta}: {prophecy?: RationalInterval, testInterval?: RationalInterval, delta?: RationalInterval}): boolean => {
+ const testConsistency = (R: Oracle, {prophecy, testInterval, delta}: {prophecy?: RationalInterval, testInterval?: RationalInterval, delta?: Rational}): boolean => {
   if (!prophecy) {
     prophecy = R.yes;
     if (!prophecy) return true; // If there's no prophecy, we can't proceed, return true by default
@@ -157,11 +157,9 @@ The point a ought to have the property that it for each delta >0, the delta neig
 This is not checked here.
 */
 
-const testClosed = (R: Oracle, {a, b, delta}: {a: Rational, b?: Rational, delta?: Rational}): boolean => {
-  if (!b) {
-    b = a; // If no second point is provided, use a to create a singleton interval a:a
-  }
-  const result = helper(R, new RationalInterval(a, b), delta);
+const testClosed = (R: Oracle, {point, secondPoint, delta}: {point: Rational, secondPoint?: Rational, delta?: Rational}): boolean => {
+  const interval = secondPoint ? new RationalInterval(point, secondPoint) : new RationalInterval(point, point);
+  const result = helper(R, interval, delta);
   return result[0][0] === 1;
 };
 
@@ -173,14 +171,14 @@ If the initial call returns -1, it returns true by default.
 */
 
 const testReasonableness = (R: Oracle, {interval, delta}: {interval: RationalInterval, delta: Rational}): boolean => {
-  const initialResult = R(interval, delta);
+  const initialResult = R(interval, delta) as LegacyAnswer;
   if (initialResult[0][0] === -1) {
     return true; // If the initial result is -1, return true by default
   }
   // Check for a few larger delta values
   const largerDeltas = [delta.multiply(new Rational(2)), delta.multiply(new Rational(3)), delta.add(new Rational(1))];
   for (const largerDelta of largerDeltas) {
-    const result = R(interval, largerDelta);
+    const result = R(interval, largerDelta) as LegacyAnswer;
     if (result[0][0] === -1) {
       return false; // If any larger delta returns -1, the property is violated
     }

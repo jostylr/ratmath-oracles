@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'bun:test';
 import { fromRational, fromInterval } from '../src/functions';
 import { makeRational, toNumber } from '../src/ops';
-import { RationalInterval } from 'ratmath';
+import { RationalInterval } from '../src/ratmath';
 
 describe('basic oracles', () => {
   it('fromRational sets yes to q:q', () => {

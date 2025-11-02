@@ -11,7 +11,7 @@ This takes in an interval and a delta, and returns the interval expanded by delt
 For example, halo([1,2], 0.1) = [0.9, 2.1]
 */
 
-import { Rational, RationalInterval } from 'ratmath';
+import { Rational, RationalInterval } from './ratmath';
 import { Answer, Oracle } from './types';
 
 
@@ -28,7 +28,10 @@ const updateYes = (oracle: Oracle, yes: RationalInterval) => {
   if (!oldYes) {
     oracle.yes = yes;
   } else {
-    oracle.yes = oldYes.intersection(yes);
+    const intersection = oldYes.intersection(yes);
+    if (intersection !== null) {
+      oracle.yes = intersection;
+    }
   }
 };
 
@@ -47,14 +50,34 @@ export const ask = (oracle:Oracle, ab: RationalInterval, delta: Rational, input?
     input = oracle.internal ? oracle.internal() : undefined;
   }
   const answer = oracle(ab, delta, input);
-  if (answer.extra && oracle.internal) {
-    oracle.internal(answer.extra);
+  
+  // Handle both Answer and LegacyAnswer formats
+  const isLegacyAnswer = Array.isArray(answer);
+  
+  if (isLegacyAnswer) {
+    // LegacyAnswer format: [[ans, interval?], extra]
+    if (answer[1]?.extra && oracle.internal) {
+      oracle.internal(answer[1].extra);
+    }
+    if (oracle.history) {
+      oracle.history.push([ab, delta, input], answer);
+    }
+    const prophecy = answer[0][1];
+    if (prophecy && oracle.update) {
+      updateYes(oracle, prophecy);
+    }
+  } else {
+    // Answer format: {ans, prophecy?, extra?}
+    if (answer.extra && oracle.internal) {
+      oracle.internal(answer.extra);
+    }
+    if (oracle.history) {
+      oracle.history.push([ab, delta, input], answer);
+    }
+    if (answer.prophecy && oracle.update) {
+      updateYes(oracle, answer.prophecy);
+    }
   }
-  if (oracle.history) {
-    oracle.history.push([ab, delta, input], answer);
-  }
-  if (answer.prophecy && oracle.update) {
-    updateYes(oracle, answer.prophecy);
-  }
+  
   return answer;
 };

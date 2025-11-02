@@ -8,7 +8,7 @@ import {
 } from '../src/rationals';
 import { add, subtract, multiply, divide } from '../src/arithmetic';
 import { fromRational } from '../src/functions';
-import { Rational, RationalInterval } from 'ratmath';
+import { Rational, RationalInterval } from '../src/ratmath';
 
 describe('rational oracles', () => {
   const q = new Rational(3, 4); // 3/4

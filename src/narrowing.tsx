@@ -1,6 +1,6 @@
-import { type Oracle, type Rational, type RationalInterval } from './types';
+import { type Oracle, type RationalInterval } from './types';
+import { RationalInterval as RMInterval, Rational } from './ratmath';
 import { midpoint, normalizeInterval, width } from './ops';
-import { RationalInterval as RMInterval, Rational } from 'ratmath';
 
 export function bisect(oracle: Oracle, precision: Rational): RationalInterval {
   let current = normalizeInterval(oracle.yes);
@@ -14,7 +14,9 @@ export function bisect(oracle: Oracle, precision: Rational): RationalInterval {
     const right: RationalInterval = new RMInterval(m, current.high);
     // Ask the oracle which side works
     const leftAns = oracle(left, precision);
-    if (leftAns.ans) {
+    // Handle both Answer and LegacyAnswer formats
+    const answerValue = Array.isArray(leftAns) ? leftAns[0][0] : leftAns.ans;
+    if (answerValue === 1) {
       current = left;
     } else {
       current = right;
@@ -54,7 +56,9 @@ export function narrowWithCutter(
     const left: RationalInterval = new RMInterval(current.low, safeCut);
     const right: RationalInterval = new RMInterval(safeCut, current.high);
     const leftAns = oracle(left, precision);
-    if (leftAns.ans) {
+    // Handle both Answer and LegacyAnswer formats
+    const answerValue = Array.isArray(leftAns) ? leftAns[0][0] : leftAns.ans;
+    if (answerValue === 1) {
       current = left;
     } else {
       current = right;
