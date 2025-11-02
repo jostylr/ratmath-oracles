@@ -24,7 +24,7 @@ const noop = (() => {}) as (...args: any[]) => any;
 // Singular Oracle of q
 export function singularOracle(q: Rational): Oracle {
   const oracle = (ab: RationalInterval, delta: Rational, input?: any): Answer => {
-    if (ab.contains(q)) {
+    if (ab.containsValue(q)) {
       return retHelper([1, new RationalInterval(q, q)]);
     } else {
       return retHelper([0, new RationalInterval(q, q)]);
@@ -38,7 +38,7 @@ export function singularOracle(q: Rational): Oracle {
 // Reflexive Oracle of q
 export function reflexiveOracle(q: Rational): Oracle {
   const oracle = (ab: RationalInterval, delta: Rational, input?: any): Answer => {
-    if (ab.contains(q)) {
+    if (ab.containsValue(q)) {
       return retHelper([1, ab]);
     } else {
       return retHelper([0, new RationalInterval(q, q)]);
@@ -51,13 +51,13 @@ export function reflexiveOracle(q: Rational): Oracle {
 
 // Halo function to create an interval expanded by delta
 function halo(interval: RationalInterval, delta: Rational): RationalInterval {
-  return new RationalInterval(interval.start.subtract(delta), interval.end.add(delta));
+  return new RationalInterval(interval.low.subtract(delta), interval.high.add(delta));
 }
 
 // Fuzzy Reflexive Oracle of q
 export function fuzzyReflexiveOracle(q: Rational): Oracle {
   const oracle = (ab: RationalInterval, delta: Rational, input?: any): Answer => {
-    if (ab.contains(q)) {
+    if (ab.containsValue(q)) {
       return retHelper([1, halo(ab, delta)]);
     } else {
       return retHelper([0]);
@@ -72,7 +72,7 @@ export function fuzzyReflexiveOracle(q: Rational): Oracle {
 export function haloOracle(q: Rational): Oracle {
   const oracle = (ab: RationalInterval, delta: Rational, input?: any): Answer => {
     const I = halo(new RationalInterval(q, q), delta.divide(new Rational(2)));
-    if (ab.intersects(I)) {
+    if (ab.intersection(I) !== null) {
       return retHelper([1, I]);
     } else {
       return retHelper([0, I]);
@@ -93,7 +93,7 @@ export function randomOracle(q: Rational, randomFunc: (delta: Rational) => Ratio
       deltaPrime = randomFunc(delta);
     }
     const I = halo(new RationalInterval(q, q), deltaPrime.divide(new Rational(2)));
-    if (ab.intersects(I)) {
+    if (ab.intersection(I) !== null) {
       return retHelper([1, I]);
     } else {
       return retHelper([0, I]);
