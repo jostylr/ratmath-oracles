@@ -34,9 +34,9 @@ const helper = (R: Oracle, ab: RationalInterval, delta?: Rational): Answer => {
     return R(ab, delta);
   }
   // Compute the length of the interval: (b - a)
-  const length: Rational = ab.end.sub(ab.start);
+  const length: Rational = ab.high.subtract(ab.low);
   // If the length is zero, set delta to randomRational()
-  delta = length.isZero() ? randomRational() : length.mul(lengthScale);
+  delta = length.equals(Rational.zero) ? randomRational() : length.multiply(lengthScale);
   // Run the oracle with the original interval and the computed delta.
   return R(ab, delta);
 };
@@ -72,14 +72,14 @@ const testSeparation = (R: Oracle, {prophecy, midpoint, delta}: {prophecy?: Rati
     if (!prophecy) return false; // If there's no prophecy, we can't proceed
   }
   if (!midpoint) {
-    midpoint = prophecy.start.add(prophecy.end).div(new Rational(2)); // Default to midpoint of the prophecy interval
+    midpoint = prophecy.low.add(prophecy.high).divide(new Rational(2)); // Default to midpoint of the prophecy interval
   }
-  if (midpoint.le(prophecy.start) || midpoint.ge(prophecy.end)) {
+  if (midpoint.lessThanOrEqual(prophecy.low) || midpoint.greaterThanOrEqual(prophecy.high)) {
     throw new Error("Midpoint must be within the prophecy interval");
   }
   // Create two subintervals: [start, midpoint] and [midpoint, end]
-  const leftInterval = new RationalInterval(prophecy.start, midpoint);
-  const rightInterval = new RationalInterval(midpoint, prophecy.end);
+  const leftInterval = new RationalInterval(prophecy.low, midpoint);
+  const rightInterval = new RationalInterval(midpoint, prophecy.high);
 
   // Check if at least one of the oracle calls on these subintervals returns a positive result (1)
   const leftResult = helper(R, leftInterval, delta);  
@@ -101,17 +101,17 @@ const testDisjointness = (R: Oracle, {prophecy, disjoint, scale = lengthScale}: 
   }
   // Compute the distance between the two intervals
   let distance: Rational;
-  if (disjoint.end.le(prophecy.start)) {
+  if (disjoint.high.lessThanOrEqual(prophecy.low)) {
     // disjoint is to the left of prophecy
-    distance = prophecy.start.sub(disjoint.end);
-  } else if (disjoint.start.ge(prophecy.end)) {
+    distance = prophecy.low.subtract(disjoint.high);
+  } else if (disjoint.low.greaterThanOrEqual(prophecy.high)) {
     // disjoint is to the right of prophecy
-    distance = disjoint.start.sub(prophecy.end);
+    distance = disjoint.low.subtract(prophecy.high);
   } else {
     throw new Error("Intervals are not disjoint");
   }
   // Delta is a scale of that distance.
-  const delta: Rational = distance.mul(scale);
+  const delta: Rational = distance.multiply(scale);
   // Run the oracle with the disjoint interval and the computed delta.
   const result = R(disjoint, delta);
   return result[0][0] !== 1;
@@ -134,13 +134,13 @@ A delta value is optional, with the default computed as one-tenth of the test in
     // Create a test interval that contains the prophecy
     // The padding will be a randomly (all positive fractions with denominator between 1 and 100 and numerator from 1 to 1000) 
     // scaled version of the prophecy length.
-    const proLength = prophecy.end.sub(prophecy.start);
+    const proLength = prophecy.high.subtract(prophecy.low);
     const leftPadding = randomRational();
     const rightPadding = randomRational();
-    testInterval = new RationalInterval(prophecy.start.sub(leftPadding.mul(proLength)), prophecy.end.add(rightPadding.mul(proLength)));
+    testInterval = new RationalInterval(prophecy.low.subtract(leftPadding.multiply(proLength)), prophecy.high.add(rightPadding.multiply(proLength)));
   }
   // Check if the test interval contains the prophecy interval
-  if (testInterval.start.le(prophecy.start) && testInterval.end.ge(prophecy.end)) { 
+  if (testInterval.low.lessThanOrEqual(prophecy.low) && testInterval.high.greaterThanOrEqual(prophecy.high)) { 
     // Run the oracle on the test interval with a small delta
     const result = helper(R, testInterval, delta);
     return result[0][0] !== 0; // Ensure the result is not negative (0)
@@ -178,7 +178,7 @@ const testReasonableness = (R: Oracle, {interval, delta}: {interval: RationalInt
     return true; // If the initial result is -1, return true by default
   }
   // Check for a few larger delta values
-  const largerDeltas = [delta.mul(new Rational(2)), delta.mul(new Rational(3)), delta.add(new Rational(1))];
+  const largerDeltas = [delta.multiply(new Rational(2)), delta.multiply(new Rational(3)), delta.add(new Rational(1))];
   for (const largerDelta of largerDeltas) {
     const result = R(interval, largerDelta);
     if (result[0][0] === -1) {

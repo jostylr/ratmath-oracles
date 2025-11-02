@@ -35,8 +35,8 @@ const updateYes = (oracle: Oracle, yes: RationalInterval) => {
 export const ask = (oracle:Oracle, ab: RationalInterval, delta: Rational, input?:any) => {
   if (oracle.expensive && oracle.yes) {
     const yes = oracle.yes;
-    if (ab.intersects(yes)) {
-      if (oracle.yes.isSubsetOf(halo(ab, delta))) {
+    if (ab.intersection(yes) !== null) {
+      if (halo(ab, delta).contains(yes)) {
         return {ans: 1, prophecy: yes};
       }
     } else {
