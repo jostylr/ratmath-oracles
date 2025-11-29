@@ -1,9 +1,9 @@
 import { type Oracle, type RationalInterval } from './types';
 import { RationalInterval as RMInterval, Rational } from './ratmath';
-import { midpoint, normalizeInterval, width } from './ops';
+import { midpoint, width } from './ops';
 
 export function bisect(oracle: Oracle, precision: Rational): RationalInterval {
-  let current = normalizeInterval(oracle.yes);
+  let current = oracle.yes;
   const targetWidth = typeof (precision as any) === 'number'
     ? Math.abs(precision as unknown as number)
     : Math.abs(Number((precision as unknown as Rational).numerator) / Number((precision as unknown as Rational).denominator));
@@ -44,7 +44,7 @@ export function narrowWithCutter(
   precision: Rational,
   cutter: (i: RationalInterval) => Rational
 ): RationalInterval {
-  let current = normalizeInterval(oracle.yes);
+  let current = oracle.yes;
   const targetWidth = typeof (precision as any) === 'number'
     ? Math.abs(precision as unknown as number)
     : Math.abs(Number((precision as unknown as Rational).numerator) / Number((precision as unknown as Rational).denominator));

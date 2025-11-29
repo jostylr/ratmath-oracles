@@ -1,6 +1,6 @@
 import { type Oracle, type RationalInterval, type Answer } from './types';
 import { Rational, RationalInterval as RMInterval } from './ratmath';
-import { addIntervals, containsZero, divIntervals, makeRational, mulIntervals, normalizeInterval, subIntervals, toNumber, width, withinDelta, intersect } from './ops';
+import { addIntervals, containsZero, divIntervals, makeRational, mulIntervals, subIntervals, toNumber, width, withinDelta, intersect } from './ops';
 import { getLogger } from './logger';
 
 function makeOracle(
@@ -8,8 +8,8 @@ function makeOracle(
   compute: (ab: RationalInterval, delta: Rational) => RationalInterval
 ): Oracle {
   const fn = ((ab: RationalInterval, delta: Rational): Answer => {
-    const target = normalizeInterval(ab);
-    const currentYes = normalizeInterval((fn as Oracle).yes);
+    const target = ab;
+    const currentYes = (fn as Oracle).yes;
     if (withinDelta(currentYes, target, delta)) {
       const interYT = intersect(currentYes, target);
       if (interYT) {
@@ -17,10 +17,10 @@ function makeOracle(
       }
       return { ans: 0, cd: currentYes };
     }
-    const prophecy = normalizeInterval(compute(target, delta));
+    const prophecy = compute(target, delta);
     const interYY = intersect(prophecy, currentYes);
     if (interYY) {
-      const refined = normalizeInterval(interYY);
+      const refined = interYY;
       (fn as Oracle).yes = refined;
       const interWithTarget = intersect(refined, target);
       const ans = !!interWithTarget && withinDelta(refined, target, delta);
@@ -28,32 +28,35 @@ function makeOracle(
     }
     return { ans: 0, cd: currentYes };
   }) as Oracle;
-  fn.yes = normalizeInterval(yes);
+  fn.yes = yes;
   return fn;
 }
 
 export function negate(a: Oracle): Oracle {
-  const yes = normalizeInterval((a.yes as RMInterval).negate());
-  return makeOracle(yes, () => yes);
+  const yes = (a.yes as RMInterval).negate();
+  return makeOracle(yes, (target: RationalInterval, delta: Rational) => {
+    const ans = a(target.negate(), delta);
+    return (ans as Answer).cd.negate();
+  });
 }
 
 export function add(a: Oracle, b: Oracle): Oracle {
-  const yes = normalizeInterval(addIntervals(a.yes, b.yes));
+  const yes = addIntervals(a.yes, b.yes);
   return makeOracle(yes, () => yes);
 }
 
 export function subtract(a: Oracle, b: Oracle): Oracle {
-  const yes = normalizeInterval(subIntervals(a.yes, b.yes));
+  const yes = subIntervals(a.yes, b.yes);
   return makeOracle(yes, () => yes);
 }
 
 export function multiply(a: Oracle, b: Oracle): Oracle {
-  const yes = normalizeInterval(mulIntervals(a.yes, b.yes));
+  const yes = mulIntervals(a.yes, b.yes);
   return makeOracle(yes, () => yes);
 }
 
 export function divide(numer: Oracle, denom: Oracle): Oracle {
-  const dYes = normalizeInterval(denom.yes);
+  const dYes = denom.yes;
   if (dYes.low.equals(Rational.zero) && dYes.high.equals(Rational.zero)) {
     throw new Error('Division by zero: denominator known to be zero');
   }
@@ -81,10 +84,10 @@ export function divide(numer: Oracle, denom: Oracle): Oracle {
       }
     }
   }
-  const yes = normalizeInterval(divIntervals(numer.yes, safeDen));
+  const yes = divIntervals(numer.yes, safeDen);
 
   return makeOracle(yes, (_ab, delta) => {
-    const dNow = normalizeInterval(denom.yes);
+    const dNow = denom.yes;
     if (containsZero(dNow)) {
       const d = delta instanceof Rational ? delta : new Rational(delta as any);
       const nlo = dNow.low.add(d);

@@ -1,6 +1,6 @@
 import { type Oracle, type Answer, type RationalInterval } from './types';
 import { Rational, RationalInterval as RMInterval } from './ratmath';
-import { intersect, normalizeInterval, withinDelta, makeRational } from './ops';
+import { intersect, withinDelta, makeRational } from './ops';
 
 export type ComputeFnWithState = ((ab: RationalInterval, delta: Rational) => RationalInterval) & {
   internal?: Record<string, unknown>;
@@ -11,8 +11,8 @@ function makeOracle(
   compute: (ab: RationalInterval, delta: Rational) => RationalInterval
 ): Oracle {
   const fn = ((ab: RationalInterval, delta: Rational): Answer => {
-    const target = normalizeInterval(ab);
-    const currentYes = normalizeInterval((fn as Oracle).yes);
+    const target = ab;
+    const currentYes = (fn as Oracle).yes;
     // Early path: if current yes already within delta of target, avoid compute
     if (withinDelta(currentYes, target, delta)) {
       const interYT = intersect(currentYes, target);
@@ -25,10 +25,10 @@ function makeOracle(
     }
 
     // Compute prophecy and intersect with current yes; update yes to intersection when possible
-    const prophecy = normalizeInterval(compute(target, delta));
+    const prophecy = compute(target, delta);
     const interYY = intersect(prophecy, currentYes);
     if (interYY) {
-      const refined = normalizeInterval(interYY);
+      const refined = interYY;
       (fn as Oracle).yes = refined; // Only update yes when compute is called and intersection exists
       const interWithTarget = intersect(refined, target);
       const ans = !!interWithTarget && withinDelta(refined, target, delta);
@@ -37,7 +37,7 @@ function makeOracle(
     // No intersection: leave yes unchanged and report based on current state
     return { ans: 0, cd: currentYes };
   }) as Oracle;
-  fn.yes = normalizeInterval(yes);
+  fn.yes = yes;
   return fn;
 }
 
@@ -48,7 +48,7 @@ export function fromRational(q: Rational): Oracle {
 }
 
 export function fromInterval(i: RationalInterval): Oracle {
-  const yes = normalizeInterval(i);
+  const yes = i;
   return makeOracle(yes, () => yes);
 }
 
