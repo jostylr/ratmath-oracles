@@ -1,6 +1,6 @@
 import { type Oracle, type Answer, type RationalInterval } from './types';
 import { Rational, RationalInterval as RMInterval } from './ratmath';
-import { intersect, withinDelta, makeRational } from './ops';
+import { intersect, withinDelta, makeRational, expand } from './ops';
 
 export type ComputeFnWithState = ((ab: RationalInterval, delta: Rational) => RationalInterval) & {
   internal?: Record<string, unknown>;
@@ -13,18 +13,22 @@ function makeOracle(
   const fn = ((ab: RationalInterval, delta: Rational): Answer => {
     const target = ab;
     const currentYes = (fn as Oracle).yes;
-    // Early path: if current yes already within delta of target, avoid compute
-    if (withinDelta(currentYes, target, delta)) {
-      const interYT = intersect(currentYes, target);
-      if (interYT) {
-        // Do not mutate yes; return currentYes as cd
-        return { ans: 1, cd: currentYes };
-      }
-      // No intersection; answer is false, do not change yes
-      return { ans: 0, cd: currentYes };
+
+    // Check definitive cases against target expanded by delta
+    const expandedTarget = expand(target, delta);
+    const interYT = intersect(currentYes, expandedTarget);
+
+    if (!interYT) {
+      // Disjoint: definitely No
+      return [[0, currentYes], null];
     }
 
-    // Compute prophecy and intersect with current yes; update yes to intersection when possible
+    // If currentYes is fully contained in expandedTarget, definitely Yes
+    if (interYT.low.equals(currentYes.low) && interYT.high.equals(currentYes.high)) {
+      return [[1, currentYes], null];
+    }
+
+    // Partial overlap: ambiguous. Force refinement.
     const prophecy = compute(target, delta);
     const interYY = intersect(prophecy, currentYes);
     if (interYY) {
@@ -32,10 +36,10 @@ function makeOracle(
       (fn as Oracle).yes = refined; // Only update yes when compute is called and intersection exists
       const interWithTarget = intersect(refined, target);
       const ans = !!interWithTarget && withinDelta(refined, target, delta);
-      return { ans: ans ? 1 : 0, cd: refined };
+      return [[ans ? 1 : 0, refined], null];
     }
     // No intersection: leave yes unchanged and report based on current state
-    return { ans: 0, cd: currentYes };
+    return [[0, currentYes], null];
   }) as Oracle;
   fn.yes = yes;
   return fn;

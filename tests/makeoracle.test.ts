@@ -16,9 +16,9 @@ describe('makeOracle behavior', () => {
     const delta = new Rational(0 as any);
     const ans = o(target, delta);
     // Should be early-return: withinDelta(currentYes,target,delta) true and intersects
-    expect(ans.ans).toBe(1);
-    expect(ans.cd.low.equals(before.low)).toBe(true);
-    expect(ans.cd.high.equals(before.high)).toBe(true);
+    expect(ans[0][0]).toBe(1);
+    expect(ans[0][1]!.low.equals(before.low)).toBe(true);
+    expect(ans[0][1]!.high.equals(before.high)).toBe(true);
     // yes should be unchanged
     expect(o.yes.low.equals(before.low)).toBe(true);
     expect(o.yes.high.equals(before.high)).toBe(true);
@@ -39,7 +39,7 @@ describe('makeOracle behavior', () => {
     expect(before.low.equals(initialYes.low)).toBe(true);
     expect(before.high.equals(initialYes.high)).toBe(true);
 
-    const target = interval(20, 30); // disjoint from currentYes to force compute path
+    const target = interval(5, 15); // partial overlap with currentYes to force compute path
     const delta = new Rational(0 as any);
     const ans = o(target, delta);
 
@@ -48,11 +48,11 @@ describe('makeOracle behavior', () => {
     expect(o.yes.high.equals(prophecyInterval.high)).toBe(true);
 
     // Returned cd should be the refined intersection as well
-    expect(ans.cd.low.equals(prophecyInterval.low)).toBe(true);
-    expect(ans.cd.high.equals(prophecyInterval.high)).toBe(true);
+    expect(ans[0][1]!.low.equals(prophecyInterval.low)).toBe(true);
+    expect(ans[0][1]!.high.equals(prophecyInterval.high)).toBe(true);
 
     // Since target is far away, ans may be 0; we only care about yes/cd behavior
-    expect(typeof ans.ans).toBe('number');
+    expect(typeof ans[0][0]).toBe('number');
   });
 });
 

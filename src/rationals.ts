@@ -12,18 +12,18 @@ answer is reached or a halting condition is reached (also given at oracle defini
 */
 
 import { Rational, RationalInterval } from './ratmath';
-import { Answer, Oracle, LegacyAnswer } from './types';
+import { Answer, Oracle } from './types';
 
 /*retHelper takes in an array <isYes, interval>, and returns Answer form of [array, null] This is for when there is no extra out*/
-function retHelper(tuple: [1 | 0 | -1, RationalInterval?]): LegacyAnswer {
-    return [tuple, null];
+function retHelper(tuple: [1 | 0 | -1, RationalInterval?]): Answer {
+  return [tuple, null];
 }
 
-const noop = (() => {}) as (...args: any[]) => any;
+const noop = (() => { }) as (...args: any[]) => any;
 
 // Singular Oracle of q
 export function singularOracle(q: Rational): Oracle {
-  const oracle = (ab: RationalInterval, delta: Rational, input?: any): LegacyAnswer => {
+  const oracle = (ab: RationalInterval, delta: Rational, input?: any): Answer => {
     if (ab.containsValue(q)) {
       return retHelper([1, new RationalInterval(q, q)]);
     } else {
@@ -37,7 +37,7 @@ export function singularOracle(q: Rational): Oracle {
 
 // Reflexive Oracle of q
 export function reflexiveOracle(q: Rational): Oracle {
-  const oracle = (ab: RationalInterval, delta: Rational, input?: any): LegacyAnswer => {
+  const oracle = (ab: RationalInterval, delta: Rational, input?: any): Answer => {
     if (ab.containsValue(q)) {
       return retHelper([1, ab]);
     } else {
@@ -56,7 +56,7 @@ function halo(interval: RationalInterval, delta: Rational): RationalInterval {
 
 // Fuzzy Reflexive Oracle of q
 export function fuzzyReflexiveOracle(q: Rational): Oracle {
-  const oracle = (ab: RationalInterval, delta: Rational, input?: any): LegacyAnswer => {
+  const oracle = (ab: RationalInterval, delta: Rational, input?: any): Answer => {
     if (ab.containsValue(q)) {
       return retHelper([1, halo(ab, delta)]);
     } else {
@@ -70,7 +70,7 @@ export function fuzzyReflexiveOracle(q: Rational): Oracle {
 
 // Halo Oracle of q
 export function haloOracle(q: Rational): Oracle {
-  const oracle = (ab: RationalInterval, delta: Rational, input?: any): LegacyAnswer => {
+  const oracle = (ab: RationalInterval, delta: Rational, input?: any): Answer => {
     const I = halo(new RationalInterval(q, q), delta.divide(new Rational(2)));
     if (ab.intersection(I) !== null) {
       return retHelper([1, I]);
@@ -85,7 +85,7 @@ export function haloOracle(q: Rational): Oracle {
 
 // Random Oracle of q
 export function randomOracle(q: Rational, randomFunc: (delta: Rational) => Rational): Oracle {
-  const oracle = (ab: RationalInterval, delta: Rational, input?: any): LegacyAnswer => {
+  const oracle = (ab: RationalInterval, delta: Rational, input?: any): Answer => {
     let deltaPrime: Rational;
     if (typeof input === 'function') {
       deltaPrime = input(delta);  // Use the provided random function if available

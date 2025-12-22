@@ -36,6 +36,7 @@
     "ratmath": "git@github.com:jostylr/ratmath.git"
   },
   "devDependencies": {
+    "@types/bun": "^1.3.5",
     "@types/node": "^24.9.2",
     "prettier": "^3.3.3",
     "typescript": "^5.9.3"

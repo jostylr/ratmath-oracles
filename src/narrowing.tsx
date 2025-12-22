@@ -11,14 +11,14 @@ export function bisect(oracle: Oracle, precision: Rational): RationalInterval {
   while (width(current) > targetWidth && guard++ < 10_000) {
     const m = midpoint(current);
     const left: RationalInterval = new RMInterval(current.low, m);
-    const right: RationalInterval = new RMInterval(m, current.high);
     // Ask the oracle which side works
     const leftAns = oracle(left, precision);
-    // Handle both Answer and LegacyAnswer formats
-    const answerValue = Array.isArray(leftAns) ? leftAns[0][0] : leftAns.ans;
+    // Answer is now always [[status, interval], extra]
+    const answerValue = leftAns[0][0];
     if (answerValue === 1) {
       current = left;
     } else {
+      const right: RationalInterval = new RMInterval(m, current.high);
       current = right;
     }
   }
@@ -54,13 +54,13 @@ export function narrowWithCutter(
     // Ensure cut is inside [low, high]; if not, clamp to bounds
     const safeCut = (cut.lessThan(current.low) ? current.low : (cut.greaterThan(current.high) ? current.high : cut));
     const left: RationalInterval = new RMInterval(current.low, safeCut);
-    const right: RationalInterval = new RMInterval(safeCut, current.high);
     const leftAns = oracle(left, precision);
-    // Handle both Answer and LegacyAnswer formats
-    const answerValue = Array.isArray(leftAns) ? leftAns[0][0] : leftAns.ans;
+    // Answer is now always [[status, interval], extra]
+    const answerValue = leftAns[0][0];
     if (answerValue === 1) {
       current = left;
     } else {
+      const right: RationalInterval = new RMInterval(safeCut, current.high);
       current = right;
     }
   }
