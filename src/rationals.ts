@@ -5,10 +5,10 @@
 * Fuzzy Reflexive Oracle of q: given ab, delta, returns (1, halo[a:b, delta]) if q in ab, (0) otherwise. 
 * Halo Oracle of q: given ab, delta, let I = halo[q:q, delta/2], returns (1, I) if I intersects ab, (0, I) otherwise.
 * Random Oracle of q: given ab, delta, and a random function f that takes in delta and returns rational deltaPrime between 0 and delta. 
-Use deltaPrime/2 as in the Halo Oracle of q. 
+* Use deltaPrime/2 as in the Halo Oracle of q. 
 * Bisection Oracle of (q, r0): given ab, delta, and the current ri, check if q:ri intersects ab. If not, then return (0, q:ri). 
-If so, check if q:r_i is contained in halo(ab, delta). If so, then (1, q:ri) is the response. If not, then compute rnext = (ri+q)/2. Repeat until an 
-answer is reached or a halting condition is reached (also given at oracle definition). If it halts from hitting that condition, return (-1).
+* If so, check if q:r_i is contained in halo(ab, delta). If so, then (1, q:ri) is the response. If not, then compute rnext = (ri+q)/2. Repeat until an 
+* answer is reached or a halting condition is reached (also given at oracle definition). If it halts from hitting that condition, return (-1).
 */
 
 import { Rational, RationalInterval } from './ratmath';
@@ -22,7 +22,7 @@ function retHelper(tuple: [1 | 0 | -1, RationalInterval?]): Answer {
 const noop = (() => { }) as (...args: any[]) => any;
 
 // Singular Oracle of q
-export function singularOracle(q: Rational): Oracle {
+export function singularOracle(q: Rational, initialYes?: RationalInterval): Oracle {
   const oracle = (ab: RationalInterval, delta: Rational, input?: any): Answer => {
     if (ab.containsValue(q)) {
       return retHelper([1, new RationalInterval(q, q)]);
@@ -30,13 +30,13 @@ export function singularOracle(q: Rational): Oracle {
       return retHelper([0, new RationalInterval(q, q)]);
     }
   };
-  oracle.yes = new RationalInterval(q, q);
+  oracle.yes = initialYes ?? new RationalInterval(q, q);
   oracle.update = false;
   return oracle;
 }
 
 // Reflexive Oracle of q
-export function reflexiveOracle(q: Rational): Oracle {
+export function reflexiveOracle(q: Rational, initialYes?: RationalInterval): Oracle {
   const oracle = (ab: RationalInterval, delta: Rational, input?: any): Answer => {
     if (ab.containsValue(q)) {
       return retHelper([1, ab]);
@@ -44,7 +44,7 @@ export function reflexiveOracle(q: Rational): Oracle {
       return retHelper([0, new RationalInterval(q, q)]);
     }
   };
-  oracle.yes = new RationalInterval(q, q);
+  oracle.yes = initialYes ?? new RationalInterval(q, q);
   oracle.update = false;
   return oracle;
 }
@@ -55,7 +55,7 @@ function halo(interval: RationalInterval, delta: Rational): RationalInterval {
 }
 
 // Fuzzy Reflexive Oracle of q
-export function fuzzyReflexiveOracle(q: Rational): Oracle {
+export function fuzzyReflexiveOracle(q: Rational, initialYes?: RationalInterval): Oracle {
   const oracle = (ab: RationalInterval, delta: Rational, input?: any): Answer => {
     if (ab.containsValue(q)) {
       return retHelper([1, halo(ab, delta)]);
@@ -63,13 +63,13 @@ export function fuzzyReflexiveOracle(q: Rational): Oracle {
       return retHelper([0]);
     }
   };
-  oracle.yes = new RationalInterval(q, q);
+  oracle.yes = initialYes ?? new RationalInterval(q, q);
   oracle.update = false;
   return oracle;
 }
 
 // Halo Oracle of q
-export function haloOracle(q: Rational): Oracle {
+export function haloOracle(q: Rational, initialYes?: RationalInterval): Oracle {
   const oracle = (ab: RationalInterval, delta: Rational, input?: any): Answer => {
     const I = halo(new RationalInterval(q, q), delta.divide(new Rational(2)));
     if (ab.intersection(I) !== null) {
@@ -78,13 +78,13 @@ export function haloOracle(q: Rational): Oracle {
       return retHelper([0, I]);
     }
   };
-  oracle.yes = new RationalInterval(q, q);
+  oracle.yes = initialYes ?? new RationalInterval(q, q);
   oracle.update = false;
   return oracle;
 }
 
 // Random Oracle of q
-export function randomOracle(q: Rational, randomFunc: (delta: Rational) => Rational): Oracle {
+export function randomOracle(q: Rational, randomFunc: (delta: Rational) => Rational, initialYes?: RationalInterval): Oracle {
   const oracle = (ab: RationalInterval, delta: Rational, input?: any): Answer => {
     let deltaPrime: Rational;
     if (typeof input === 'function') {
@@ -99,7 +99,55 @@ export function randomOracle(q: Rational, randomFunc: (delta: Rational) => Ratio
       return retHelper([0, I]);
     }
   };
-  oracle.yes = new RationalInterval(q, q);
+  oracle.yes = initialYes ?? new RationalInterval(q, q);
+  oracle.update = false;
+  return oracle;
+}
+
+// Bisection Oracle of (q, r0)
+export function bisectionOracle(
+  q: Rational,
+  r0: Rational,
+  maxIterations: number = 100,
+  initialYes?: RationalInterval
+): Oracle {
+  let ri = r0;
+
+  const oracle = ((ab: RationalInterval, delta: Rational, input?: any): Answer => {
+    let currentIteration = 0;
+    while (currentIteration < maxIterations) {
+      // Create interval [q, ri]
+      const low = q.lessThan(ri) ? q : ri;
+      const high = q.lessThan(ri) ? ri : q;
+      const I = new RationalInterval(low, high);
+
+      const inter = ab.intersection(I);
+      if (inter === null) {
+        // q:ri doesn't intersect ab. Return No.
+        return retHelper([0, I]);
+      }
+
+      // I intersects ab. Check if I is contained in halo(ab, delta).
+      const H = halo(ab, delta);
+      if (H.contains(I)) {
+        // I is contained in halo. Return Yes.
+        oracle.yes = I;
+        return retHelper([1, I]);
+      }
+
+      // Not contained. Refine ri and repeat.
+      ri = ri.add(q).divide(new Rational(2));
+      currentIteration++;
+    }
+
+    // Halting condition hit.
+    const low = q.lessThan(ri) ? q : ri;
+    const high = q.lessThan(ri) ? ri : q;
+    const finalI = new RationalInterval(low, high);
+    return retHelper([-1, finalI]);
+  }) as Oracle;
+
+  oracle.yes = initialYes ?? (q.lessThan(r0) ? new RationalInterval(q, r0) : new RationalInterval(r0, q));
   oracle.update = false;
   return oracle;
 }
