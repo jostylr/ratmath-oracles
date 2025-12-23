@@ -57,3 +57,18 @@ export function divIntervals(a: RationalInterval, b: RationalInterval): Rational
 export function midpoint(i: RationalInterval): Rational {
   return i.low.add(i.high).divide(new Rational(2));
 }
+
+export function getMagnitude(i: RationalInterval): Rational {
+  const absLow = i.low.abs();
+  const absHigh = i.high.abs();
+  return absLow.greaterThan(absHigh) ? absLow : absHigh;
+}
+
+export function getMinMagnitude(i: RationalInterval): Rational {
+  if (i.containsZero()) {
+    return Rational.zero;
+  }
+  const absLow = i.low.abs();
+  const absHigh = i.high.abs();
+  return absLow.lessThan(absHigh) ? absLow : absHigh;
+}

@@ -1,6 +1,6 @@
 import { type Oracle, type RationalInterval, type Answer } from './types';
 import { Rational, RationalInterval as RMInterval } from './ratmath';
-import { addIntervals, containsZero, divIntervals, makeRational, mulIntervals, subIntervals, toNumber, width, withinDelta, intersect, expand } from './ops';
+import { addIntervals, containsZero, divIntervals, makeRational, mulIntervals, subIntervals, toNumber, width, withinDelta, intersect, expand, getMagnitude, getMinMagnitude } from './ops';
 import { getLogger } from './logger';
 import { bisect } from './narrowing';
 
@@ -78,10 +78,19 @@ export function subtract(a: Oracle, b: Oracle): Oracle {
 export function multiply(a: Oracle, b: Oracle): Oracle {
   const yes = mulIntervals(a.yes, b.yes);
   return makeOracle(yes, (_target, delta) => {
-    // Multiplication error propagation is more complex, but using a smaller delta usually works.
-    // For rigorous arithmetic, we'd calculate needed precision based on magnitudes.
-    // Here we use a heuristic of delta/4 for safety given magnitudes can amplify error.
-    const subDelta = delta.divide(new Rational(4));
+    // Multiplication error propagation: |Δ(ab)| ≈ |a|Δb + |b|Δa
+    // If we set Δa = Δb = ε, then |Δ(ab)| ≈ (|a| + |b|)ε
+    // Using M = max(|a|, |b|), |Δ(ab)| ≤ 2Mε
+    // To get |Δ(ab)| < delta, we need ε < delta / (2M)
+    const m1 = getMagnitude(a.yes);
+    const m2 = getMagnitude(b.yes);
+    const M = m1.greaterThan(m2) ? m1 : m2;
+
+    // Fallback if M is very small to avoid large subDelta
+    const subDelta = M.lessThan(new Rational(1, 2))
+      ? delta
+      : delta.divide(M.multiply(new Rational(2)));
+
     bisect(a, subDelta);
     bisect(b, subDelta);
     return mulIntervals(a.yes, b.yes);
@@ -119,12 +128,27 @@ export function divide(numer: Oracle, denom: Oracle): Oracle {
   const yes = divIntervals(numer.yes, safeDen);
 
   return makeOracle(yes, (_ab, delta) => {
-    const subDelta = delta.divide(new Rational(4)); // Heuristic
+    // Division error propagation: |Δ(n/d)| ≈ |Δn/d| + |nΔd/d^2| = (ε/|d|) * (1 + |n/d|) = ε(|d|+|n|)/d^2
+    // To get |Δ(n/d)| < delta, we need ε < delta * d^2 / (|d| + |n|)
+    const nMag = getMagnitude(numer.yes);
+    const dMin = getMinMagnitude(denom.yes);
+
+    let subDelta: Rational;
+    if (dMin.equals(Rational.zero)) {
+      // If dMin is zero, we rely on the heuristic or throw if it stays zero
+      subDelta = delta.divide(new Rational(4));
+    } else {
+      const dMinSq = dMin.multiply(dMin);
+      const denominatorForDelta = dMin.add(nMag);
+      subDelta = delta.multiply(dMinSq).divide(denominatorForDelta);
+    }
+
     bisect(numer, subDelta);
     bisect(denom, subDelta);
 
     const dNow = denom.yes;
     if (containsZero(dNow)) {
+      // If it still contains zero after bisection, we might have a problem
       const d = subDelta;
       const nlo = dNow.low.add(d);
       const nhi = dNow.high.subtract(d);
