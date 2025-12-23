@@ -23,8 +23,8 @@ describe('rational oracles', () => {
       const result = oracle(intervalContainingQ, delta);
 
       expect(result[0][0]).toBe(1);
-      expect(result[0][1].low.equals(q)).toBe(true);
-      expect(result[0][1].high.equals(q)).toBe(true);
+      expect(result[0][1]!.low.equals(q)).toBe(true);
+      expect(result[0][1]!.high.equals(q)).toBe(true);
     });
 
     it('returns (0, q:q) when q is not in interval', () => {
@@ -32,8 +32,8 @@ describe('rational oracles', () => {
       const result = oracle(intervalNotContainingQ, delta);
 
       expect(result[0][0]).toBe(0);
-      expect(result[0][1].low.equals(q)).toBe(true);
-      expect(result[0][1].high.equals(q)).toBe(true);
+      expect(result[0][1]!.low.equals(q)).toBe(true);
+      expect(result[0][1]!.high.equals(q)).toBe(true);
     });
 
     it('has correct yes interval', () => {
@@ -49,8 +49,8 @@ describe('rational oracles', () => {
       const result = oracle(intervalContainingQ, delta);
 
       expect(result[0][0]).toBe(1);
-      expect(result[0][1].low.equals(intervalContainingQ.low)).toBe(true);
-      expect(result[0][1].high.equals(intervalContainingQ.high)).toBe(true);
+      expect(result[0][1]!.low.equals(intervalContainingQ.low)).toBe(true);
+      expect(result[0][1]!.high.equals(intervalContainingQ.high)).toBe(true);
     });
 
     it('returns (0, q:q) when q is not in interval', () => {
@@ -58,8 +58,8 @@ describe('rational oracles', () => {
       const result = oracle(intervalNotContainingQ, delta);
 
       expect(result[0][0]).toBe(0);
-      expect(result[0][1].low.equals(q)).toBe(true);
-      expect(result[0][1].high.equals(q)).toBe(true);
+      expect(result[0][1]!.low.equals(q)).toBe(true);
+      expect(result[0][1]!.high.equals(q)).toBe(true);
     });
 
     it('has correct yes interval', () => {
@@ -77,8 +77,8 @@ describe('rational oracles', () => {
       expect(result[0][0]).toBe(1);
       const expectedLow = intervalContainingQ.low.subtract(delta);
       const expectedHigh = intervalContainingQ.high.add(delta);
-      expect(result[0][1].low.equals(expectedLow)).toBe(true);
-      expect(result[0][1].high.equals(expectedHigh)).toBe(true);
+      expect(result[0][1]!.low.equals(expectedLow)).toBe(true);
+      expect(result[0][1]!.high.equals(expectedHigh)).toBe(true);
     });
 
     it('returns (0) when q is not in interval', () => {
@@ -106,8 +106,8 @@ describe('rational oracles', () => {
       expect(result[0][0]).toBe(1);
       const expectedLow = q.subtract(delta.divide(new Rational(2)));
       const expectedHigh = q.add(delta.divide(new Rational(2)));
-      expect(result[0][1].low.equals(expectedLow)).toBe(true);
-      expect(result[0][1].high.equals(expectedHigh)).toBe(true);
+      expect(result[0][1]!.low.equals(expectedLow)).toBe(true);
+      expect(result[0][1]!.high.equals(expectedHigh)).toBe(true);
     });
 
     it('returns (0, I) when halo does not intersect interval', () => {
@@ -117,8 +117,8 @@ describe('rational oracles', () => {
       expect(result[0][0]).toBe(0);
       const expectedLow = q.subtract(delta.divide(new Rational(2)));
       const expectedHigh = q.add(delta.divide(new Rational(2)));
-      expect(result[0][1].low.equals(expectedLow)).toBe(true);
-      expect(result[0][1].high.equals(expectedHigh)).toBe(true);
+      expect(result[0][1]!.low.equals(expectedLow)).toBe(true);
+      expect(result[0][1]!.high.equals(expectedHigh)).toBe(true);
     });
 
     it('has correct yes interval', () => {
@@ -138,8 +138,8 @@ describe('rational oracles', () => {
       const deltaPrime = delta.divide(new Rational(2));
       const expectedLow = q.subtract(deltaPrime.divide(new Rational(2)));
       const expectedHigh = q.add(deltaPrime.divide(new Rational(2)));
-      expect(result[0][1].low.equals(expectedLow)).toBe(true);
-      expect(result[0][1].high.equals(expectedHigh)).toBe(true);
+      expect(result[0][1]!.low.equals(expectedLow)).toBe(true);
+      expect(result[0][1]!.high.equals(expectedHigh)).toBe(true);
     });
 
     it('uses input function when provided', () => {
@@ -152,8 +152,8 @@ describe('rational oracles', () => {
       const deltaPrime = delta.divide(new Rational(3));
       const expectedLow = q.subtract(deltaPrime.divide(new Rational(2)));
       const expectedHigh = q.add(deltaPrime.divide(new Rational(2)));
-      expect(result[0][1].low.equals(expectedLow)).toBe(true);
-      expect(result[0][1].high.equals(expectedHigh)).toBe(true);
+      expect(result[0][1]!.low.equals(expectedLow)).toBe(true);
+      expect(result[0][1]!.high.equals(expectedHigh)).toBe(true);
     });
 
     it('has correct yes interval', () => {
