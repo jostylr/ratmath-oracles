@@ -2,7 +2,7 @@ import { type Oracle, type RationalInterval, type Answer } from './types';
 import { Rational, RationalInterval as RMInterval } from './ratmath';
 import { addIntervals, containsZero, divIntervals, makeRational, mulIntervals, subIntervals, toNumber, width, withinDelta, intersect, expand, getMagnitude, getMinMagnitude } from './ops';
 import { getLogger } from './logger';
-import { bisect } from './narrowing';
+import { narrow } from './narrowing';
 
 function makeOracle(
   yes: RationalInterval,
@@ -48,7 +48,7 @@ export function negate(a: Oracle): Oracle {
   const yes = (a.yes as RMInterval).negate();
   return makeOracle(yes, (target: RationalInterval, delta: Rational) => {
     // Refine operand to half delta
-    bisect(a, delta);
+    narrow(a, delta);
     const ans = a.yes.negate();
     return ans;
   });
@@ -59,8 +59,8 @@ export function add(a: Oracle, b: Oracle): Oracle {
   return makeOracle(yes, (_target, delta) => {
     // Refine both operands to half the delta (conservative)
     const subDelta = delta.divide(new Rational(2));
-    bisect(a, subDelta);
-    bisect(b, subDelta);
+    narrow(a, subDelta);
+    narrow(b, subDelta);
     return addIntervals(a.yes, b.yes);
   });
 }
@@ -69,8 +69,8 @@ export function subtract(a: Oracle, b: Oracle): Oracle {
   const yes = subIntervals(a.yes, b.yes);
   return makeOracle(yes, (_target, delta) => {
     const subDelta = delta.divide(new Rational(2));
-    bisect(a, subDelta);
-    bisect(b, subDelta);
+    narrow(a, subDelta);
+    narrow(b, subDelta);
     return subIntervals(a.yes, b.yes);
   });
 }
@@ -91,8 +91,8 @@ export function multiply(a: Oracle, b: Oracle): Oracle {
       ? delta
       : delta.divide(M.multiply(new Rational(2)));
 
-    bisect(a, subDelta);
-    bisect(b, subDelta);
+    narrow(a, subDelta);
+    narrow(b, subDelta);
     return mulIntervals(a.yes, b.yes);
   });
 }
@@ -141,7 +141,7 @@ export function divide(numer: Oracle, denom: Oracle): Oracle {
     // If dYes is already narrower than delta, bisect does nothing.
     // Ideally we want to refine it enough to separate from zero if possible, or just reduce width.
     if (dMin.lessThan(new Rational(1))) {
-      const refinedDenom = bisect(denom, delta);
+      const refinedDenom = narrow(denom, delta);
       denom.yes = refinedDenom;
       // Re-read dYes and dMin after bisection
       dMin = getMinMagnitude(denom.yes);
@@ -157,8 +157,8 @@ export function divide(numer: Oracle, denom: Oracle): Oracle {
       subDelta = delta.multiply(dMinSq).divide(denominatorForDelta);
     }
 
-    bisect(numer, subDelta);
-    bisect(denom, subDelta);
+    narrow(numer, subDelta);
+    narrow(denom, subDelta);
 
     const dNow = denom.yes;
     if (containsZero(dNow)) {

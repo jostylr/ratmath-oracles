@@ -2,7 +2,10 @@ import { type Oracle, type RationalInterval } from './types';
 import { RationalInterval as RMInterval, Rational } from './ratmath';
 import { midpoint, width } from './ops';
 
-export function bisect(oracle: Oracle, precision: Rational): RationalInterval {
+export function narrow(oracle: Oracle, precision: Rational): RationalInterval {
+  if (oracle.narrowing) {
+    return oracle.narrowing(precision);
+  }
   let current = oracle.yes;
   const targetWidth = typeof (precision as any) === 'number'
     ? Math.abs(precision as unknown as number)
@@ -22,11 +25,12 @@ export function bisect(oracle: Oracle, precision: Rational): RationalInterval {
       current = right;
     }
   }
+  oracle.yes = current;
   return current;
 }
 
 export function refine(oracle: Oracle, precision: Rational): Oracle {
-  const refinedYes = bisect(oracle, precision);
+  const refinedYes = narrow(oracle, precision);
   const fn = ((ab: RationalInterval, delta: Rational) => {
     // Delegate to original oracle; yes interval now refined
     return oracle(ab, delta);
@@ -64,6 +68,7 @@ export function narrowWithCutter(
       current = right;
     }
   }
+  oracle.yes = current;
   return current;
 }
 
