@@ -131,7 +131,21 @@ export function divide(numer: Oracle, denom: Oracle): Oracle {
     // Division error propagation: |Δ(n/d)| ≈ |Δn/d| + |nΔd/d^2| = (ε/|d|) * (1 + |n/d|) = ε(|d|+|n|)/d^2
     // To get |Δ(n/d)| < delta, we need ε < delta * d^2 / (|d| + |n|)
     const nMag = getMagnitude(numer.yes);
-    const dMin = getMinMagnitude(denom.yes);
+    let dMin = getMinMagnitude(denom.yes);
+
+    // Optimization: If dMin is small effectively amplifying subDelta requirements,
+    // and the denominator interval is wide enough to be refined, try to refine it *first*
+    // using the target output delta (or a multiple of it) to see if we can get a better dMin.
+    // 
+    // This is "speculative refinement" of the denominator.
+    // If dYes is already narrower than delta, bisect does nothing.
+    // Ideally we want to refine it enough to separate from zero if possible, or just reduce width.
+    if (dMin.lessThan(new Rational(1))) {
+      const refinedDenom = bisect(denom, delta);
+      denom.yes = refinedDenom;
+      // Re-read dYes and dMin after bisection
+      dMin = getMinMagnitude(denom.yes);
+    }
 
     let subDelta: Rational;
     if (dMin.equals(Rational.zero)) {
