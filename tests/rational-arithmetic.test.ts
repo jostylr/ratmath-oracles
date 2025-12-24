@@ -8,6 +8,8 @@ import {
     randomOracle
 } from '../src/rationals';
 import { add, subtract, multiply, divide } from '../src/arithmetic';
+import { narrow } from '../src/narrowing';
+import { width } from '../src/ops';
 import { Rational, RationalInterval } from '../src/ratmath';
 import { Oracle } from '../src/types';
 
@@ -49,23 +51,33 @@ describe('Rational Arithmetic Combinations', () => {
 
     // Helper to verify oracle result
     const checkOracle = (oracle: Oracle, expectedVal: Rational, name: string) => {
-        // 1. Check strict inclusion (Yes)
-        // Create a very small interval around expectedVal: [val-epsilon, val+epsilon]
-        const epsilon = new Rational(1, 100000);
+        // 1. Check narrowing (Yes)
+        // Instead of asking a fixed small interval, we use the narrow tool
+        // which the user intended to be the primary way to interact with oracles.
+        const out = narrow(oracle, delta);
+
+        if (!out.containsValue(expectedVal)) {
+            console.error(`Failed ${name} (Correctness): narrow result [${out.low.toString()}, ${out.high.toString()}] does not contain ${expectedVal.toString()}`);
+        }
+        expect(out.containsValue(expectedVal)).toBe(true);
+
+        // Check width. targetWidth in narrow is Math.abs(Number(delta)) roughly.
+        const targetW = Math.abs(Number(delta.numerator) / Number(delta.denominator));
+        expect(width(out)).toBeLessThanOrEqual(targetW);
+
+        // 2. The primary "Yes" check: Verify the oracle answers Yes for a valid interval
+        const epsilon = delta.divide(new Rational(10));
         const yesTarget = new RationalInterval(
             expectedVal.subtract(epsilon),
             expectedVal.add(epsilon)
         );
-
-        // We expect the oracle to say Yes (1) because the true value is inside yesTarget
-        // and yesTarget should be well within any halo expanded by delta=1/1000
         const resYes = oracle(yesTarget, delta);
         if (resYes[0][0] !== 1) {
             console.error(`Failed ${name} (Expected Yes): result=${resYes[0][0]}, expected=1. Prophecy: [${resYes[0][1]?.low.toString()}, ${resYes[0][1]?.high.toString()}]`);
         }
         expect(resYes[0][0]).toBe(1);
 
-        // 2. Check strict exclusion (No)
+        // 3. Check strict exclusion (No)
         // Create an interval far away: [val+10, val+11]
         const noTarget = new RationalInterval(
             expectedVal.add(new Rational(10)),

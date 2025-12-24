@@ -19,6 +19,7 @@ export interface Oracle {
   /* optional internal function for if the oracle has extra state or needs to do something special 
   an empty call will return the internal state, if it has args then it is called to update internal*/
   internal?: (...args: any[]) => any;
-  /* Optional narrowing function that can be used instead of bisection */
-  narrowing?: (precision: Rational) => RationalInterval;
+  /* Optional narrowing function that can be used instead of bisection.
+     Should return a more precise interval containing the value. */
+  narrowing?: (current: RationalInterval, precision: Rational) => RationalInterval;
 }
