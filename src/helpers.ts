@@ -20,9 +20,6 @@ export const halo = (interval: RationalInterval, delta: Rational): RationalInter
   return new RationalInterval(interval.low.subtract(delta), interval.high.add(delta));
 }
 
-
-
-
 const updateYes = (oracle: Oracle, yes: RationalInterval) => {
   const oldYes = oracle.yes;
   if (!oldYes) {
@@ -35,15 +32,15 @@ const updateYes = (oracle: Oracle, yes: RationalInterval) => {
   }
 };
 
-export const ask = (oracle:Oracle, ab: RationalInterval, delta: Rational, input?:any) => {
+export const ask = (oracle: Oracle, ab: RationalInterval, delta: Rational, input?: any): Answer => {
   if (oracle.expensive && oracle.yes) {
     const yes = oracle.yes;
     if (ab.intersection(yes) !== null) {
       if (halo(ab, delta).contains(yes)) {
-        return {ans: 1, prophecy: yes};
+        return [[1, yes], null];
       }
     } else {
-      return {ans: 0, prophecy: yes};
+      return [[0, yes], null];
     }
   }
   if (input === undefined) {
@@ -51,32 +48,16 @@ export const ask = (oracle:Oracle, ab: RationalInterval, delta: Rational, input?
   }
   const answer = oracle(ab, delta, input);
   
-  // Handle both Answer and LegacyAnswer formats
-  const isLegacyAnswer = Array.isArray(answer);
-  
-  if (isLegacyAnswer) {
-    // LegacyAnswer format: [[ans, interval?], extra]
-    if (answer[1]?.extra && oracle.internal) {
-      oracle.internal(answer[1].extra);
-    }
-    if (oracle.history) {
-      oracle.history.push([ab, delta, input], answer);
-    }
-    const prophecy = answer[0][1];
-    if (prophecy && oracle.update) {
-      updateYes(oracle, prophecy);
-    }
-  } else {
-    // Answer format: {ans, prophecy?, extra?}
-    if (answer.extra && oracle.internal) {
-      oracle.internal(answer.extra);
-    }
-    if (oracle.history) {
-      oracle.history.push([ab, delta, input], answer);
-    }
-    if (answer.prophecy && oracle.update) {
-      updateYes(oracle, answer.prophecy);
-    }
+  // Answer format: [[ans, interval?], extra]
+  if (answer[1]?.extra && oracle.internal) {
+    oracle.internal(answer[1].extra);
+  }
+  if (oracle.history) {
+    oracle.history.push([ab, delta, input], answer);
+  }
+  const prophecy = answer[0][1];
+  if (prophecy && oracle.update) {
+    updateYes(oracle, prophecy);
   }
   
   return answer;

@@ -6,7 +6,7 @@ export type ComputeFnWithState = ((ab: RationalInterval, delta: Rational) => Rat
   internal?: Record<string, unknown>;
 };
 
-function makeOracle(
+export function makeOracle(
   yes: RationalInterval,
   compute: (ab: RationalInterval, delta: Rational) => RationalInterval
 ): Oracle {

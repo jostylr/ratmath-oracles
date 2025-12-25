@@ -16,7 +16,7 @@ This is, for a given oracle, designed to test whether
 */
 
 import { Rational, RationalInterval } from './ratmath';
-import { Answer, Oracle, LegacyAnswer } from './types';
+import { Answer, Oracle } from './types';
 
 
 const randomRational = (upperNumerator = 1000, upperDenominator = 100): Rational => {
@@ -29,16 +29,16 @@ const lengthScale = new Rational(1, 10); // Scale factor for delta computation
 
 /* this takes in an oracle, an interval and an optional delta, creating  a delta equal to one‑tenth of the interval's length if not present,
 and then invokes the oracle with that delta, returning its answer. */
-const helper = (R: Oracle, ab: RationalInterval, delta?: Rational): LegacyAnswer => {
+const helper = (R: Oracle, ab: RationalInterval, delta?: Rational): Answer => {
   if (delta) {
-    return R(ab, delta) as LegacyAnswer;
+    return R(ab, delta);
   }
   // Compute the length of the interval: (b - a)
   const length: Rational = ab.high.subtract(ab.low);
   // If the length is zero, set delta to randomRational()
   delta = length.equals(Rational.zero) ? randomRational() : length.multiply(lengthScale);
   // Run the oracle with the original interval and the computed delta.
-  return R(ab, delta) as LegacyAnswer;
+  return R(ab, delta);
 };
 
 /*Existence
@@ -113,7 +113,7 @@ const testDisjointness = (R: Oracle, {prophecy, disjoint, scale = lengthScale}: 
   // Delta is a scale of that distance.
   const delta: Rational = distance.multiply(scale);
   // Run the oracle with the disjoint interval and the computed delta.
-  const result = R(disjoint, delta) as LegacyAnswer;
+  const result = R(disjoint, delta);
   return result[0][0] !== 1;
 }
 
@@ -171,14 +171,14 @@ If the initial call returns -1, it returns true by default.
 */
 
 const testReasonableness = (R: Oracle, {interval, delta}: {interval: RationalInterval, delta: Rational}): boolean => {
-  const initialResult = R(interval, delta) as LegacyAnswer;
+  const initialResult = R(interval, delta);
   if (initialResult[0][0] === -1) {
     return true; // If the initial result is -1, return true by default
   }
   // Check for a few larger delta values
   const largerDeltas = [delta.multiply(new Rational(2)), delta.multiply(new Rational(3)), delta.add(new Rational(1))];
   for (const largerDelta of largerDeltas) {
-    const result = R(interval, largerDelta) as LegacyAnswer;
+    const result = R(interval, largerDelta);
     if (result[0][0] === -1) {
       return false; // If any larger delta returns -1, the property is violated
     }

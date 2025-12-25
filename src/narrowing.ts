@@ -1,15 +1,13 @@
 import { type Oracle, type RationalInterval } from './types';
 import { RationalInterval as RMInterval, Rational } from './ratmath';
-import { midpoint, width } from './ops';
+import { midpoint, widthRational } from './ops';
 
 export function narrow(oracle: Oracle, precision: Rational): RationalInterval {
   let current = oracle.yes;
-  const targetWidth = typeof (precision as any) === 'number'
-    ? Math.abs(precision as unknown as number)
-    : Math.abs(Number((precision as unknown as Rational).numerator) / Number((precision as unknown as Rational).denominator));
+  const targetWidth = precision.abs();
   let guard = 0;
 
-  while (width(current) > targetWidth && guard++ < 10_000) {
+  while (widthRational(current).greaterThan(targetWidth) && guard++ < 10_000) {
     if (oracle.narrowing) {
       const next = oracle.narrowing(current, precision);
       if (next.equals(current)) break;
@@ -66,11 +64,9 @@ export function narrowWithCutter(
   cutter: (i: RationalInterval) => Rational
 ): RationalInterval {
   let current = oracle.yes;
-  const targetWidth = typeof (precision as any) === 'number'
-    ? Math.abs(precision as unknown as number)
-    : Math.abs(Number((precision as unknown as Rational).numerator) / Number((precision as unknown as Rational).denominator));
+  const targetWidth = precision.abs();
   let guard = 0;
-  while (width(current) > targetWidth && guard++ < 10_000) {
+  while (widthRational(current).greaterThan(targetWidth) && guard++ < 10_000) {
     const cut = cutter(current);
     // Ensure cut is inside [low, high]; if not, clamp to bounds
     const safeCut = (cut.lessThan(current.low) ? current.low : (cut.greaterThan(current.high) ? current.high : cut));

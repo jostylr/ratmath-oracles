@@ -1,48 +1,9 @@
-import { type Oracle, type RationalInterval, type Answer } from './types';
+import { type Oracle, type RationalInterval } from './types';
 import { Rational, RationalInterval as RMInterval } from './ratmath';
-import { addIntervals, containsZero, divIntervals, makeRational, mulIntervals, subIntervals, toNumber, width, withinDelta, intersect, expand, getMagnitude, getMinMagnitude } from './ops';
+import { addIntervals, containsZero, divIntervals, mulIntervals, subIntervals, getMagnitude, getMinMagnitude } from './ops';
 import { getLogger } from './logger';
 import { narrow } from './narrowing';
-
-function makeOracle(
-  yes: RationalInterval,
-  compute: (ab: RationalInterval, delta: Rational) => RationalInterval
-): Oracle {
-  const fn = ((ab: RationalInterval, delta: Rational): Answer => {
-    const target = ab;
-    const currentYes = (fn as Oracle).yes;
-
-    // Check definitive cases against target expanded by delta
-    const expandedTarget = expand(target, delta);
-    const interYT = intersect(currentYes, expandedTarget);
-
-    if (!interYT) {
-      // Disjoint: definitely No
-      return [[0, currentYes], null];
-    }
-
-    // If currentYes is fully contained in expandedTarget, definitely Yes
-    // interYT is the intersection. If interYT == currentYes, then currentYes is subset.
-    // RationalInterval.equals checks value equality.
-    if (interYT.low.equals(currentYes.low) && interYT.high.equals(currentYes.high)) {
-      return [[1, currentYes], null];
-    }
-
-    // Partial overlap: ambiguous. Force refinement.
-    const prophecy = compute(target, delta);
-    const interYY = intersect(prophecy, currentYes);
-    if (interYY) {
-      const refined = interYY;
-      (fn as Oracle).yes = refined;
-      const interWithTarget = intersect(refined, target);
-      const ans = !!interWithTarget && withinDelta(refined, target, delta);
-      return [[ans ? 1 : 0, refined], null];
-    }
-    return [[0, currentYes], null];
-  }) as Oracle;
-  fn.yes = yes;
-  return fn;
-}
+import { makeOracle } from './functions';
 
 export function negate(a: Oracle): Oracle {
   const yes = (a.yes as RMInterval).negate();
@@ -138,12 +99,12 @@ export function divide(numer: Oracle, denom: Oracle): Oracle {
     // using the target output delta (or a multiple of it) to see if we can get a better dMin.
     // 
     // This is "speculative refinement" of the denominator.
-    // If dYes is already narrower than delta, bisect does nothing.
+    // If dYes is already narrower than delta, narrow does nothing.
     // Ideally we want to refine it enough to separate from zero if possible, or just reduce width.
     if (dMin.lessThan(new Rational(1))) {
       const refinedDenom = narrow(denom, delta);
       denom.yes = refinedDenom;
-      // Re-read dYes and dMin after bisection
+      // Re-read dYes and dMin after narrowion
       dMin = getMinMagnitude(denom.yes);
     }
 
@@ -162,7 +123,7 @@ export function divide(numer: Oracle, denom: Oracle): Oracle {
 
     const dNow = denom.yes;
     if (containsZero(dNow)) {
-      // If it still contains zero after bisection, we might have a problem
+      // If it still contains zero after narrowion, we might have a problem
       const d = subDelta;
       const nlo = dNow.low.add(d);
       const nhi = dNow.high.subtract(d);

@@ -5,7 +5,7 @@
 import { Rational, RationalInterval } from '../ratmath';
 
 // Core oracle and answer types
-export type { Answer, Oracle, LegacyAnswer } from './oracle';
+export type { Answer, Oracle } from './oracle';
 
 // Re-export ratmath types for convenience
 export { Rational, RationalInterval } from '../ratmath';
@@ -17,9 +17,9 @@ export type RationalIntervalLike = {
 };
 
 // Import types for use in utility types
-import type { Answer as TAnswer, Oracle as TOracle, LegacyAnswer as TLegacyAnswer } from './oracle';
+import type { Answer as TAnswer, Oracle as TOracle } from './oracle';
 
-export type OracleFunction = (ab: RationalInterval, delta: Rational, input?: any) => TAnswer | TLegacyAnswer;
+export type OracleFunction = (ab: RationalInterval, delta: Rational, input?: any) => TAnswer;
 
 export type OracleResult = {
   ans: 1 | 0 | -1;

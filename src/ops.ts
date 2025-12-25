@@ -20,6 +20,10 @@ export function width(i: RationalInterval): number {
   return Number(diff.numerator) / Number(diff.denominator);
 }
 
+export function widthRational(i: RationalInterval): Rational {
+  return i.high.subtract(i.low);
+}
+
 export function containsZero(i: RationalInterval): boolean {
   return i.containsZero();
 }
