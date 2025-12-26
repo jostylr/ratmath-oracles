@@ -32,7 +32,17 @@ const updateYes = (oracle: Oracle, yes: RationalInterval) => {
   }
 };
 
-export const ask = (oracle: Oracle, ab: RationalInterval, delta: Rational, input?: any): Answer => {
+export class AsyncQueue {
+  private chain: Promise<any> = Promise.resolve();
+
+  add<T>(fn: () => Promise<T>): Promise<T> {
+    const next = this.chain.then(() => fn());
+    this.chain = next.catch(() => { }); // handle error so chain continues
+    return next;
+  }
+}
+
+export const ask = async (oracle: Oracle, ab: RationalInterval, delta: Rational, input?: any): Promise<Answer> => {
   if (oracle.expensive && oracle.yes) {
     const yes = oracle.yes;
     if (ab.intersection(yes) !== null) {
@@ -46,8 +56,10 @@ export const ask = (oracle: Oracle, ab: RationalInterval, delta: Rational, input
   if (input === undefined) {
     input = oracle.internal ? oracle.internal() : undefined;
   }
-  const answer = oracle(ab, delta, input);
-  
+
+  const answerResult = oracle(ab, delta, input);
+  const answer = answerResult instanceof Promise ? await answerResult : answerResult;
+
   // Answer format: [[ans, interval?], extra]
   if (answer[1]?.extra && oracle.internal) {
     oracle.internal(answer[1].extra);
@@ -59,6 +71,6 @@ export const ask = (oracle: Oracle, ab: RationalInterval, delta: Rational, input
   if (prophecy && oracle.update) {
     updateYes(oracle, prophecy);
   }
-  
+
   return answer;
 };

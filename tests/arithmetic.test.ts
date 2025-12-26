@@ -7,7 +7,7 @@ import { setLogger } from '../src/logger';
 import type { Answer } from '../src/types';
 
 describe('arithmetic oracles', () => {
-  it('minimal oracle call test', () => {
+  it('minimal oracle call test', async () => {
     console.log('Starting minimal test');
     const qa = makeRational(3);
     const oracleA = fromRational(qa);
@@ -17,13 +17,13 @@ describe('arithmetic oracles', () => {
     const delta = new Rational(1, 1000);
 
     console.log('About to call oracle with interval [2.9, 3.1]');
-    const result = oracleA(testInterval, delta) as Answer;
+    const result = await oracleA(testInterval, delta) as Answer;
     console.log('Oracle returned:', result[0][0]);
     expect(result[0][0]).toBe(1);
     console.log('Minimal test completed');
   });
 
-  it('add: oracle(a) + oracle(b) matches oracle(a+b)', () => {
+  it('add: oracle(a) + oracle(b) matches oracle(a+b)', async () => {
     console.log('Starting add test');
     // Create two rational values
     const qa = makeRational(3);
@@ -53,22 +53,22 @@ describe('arithmetic oracles', () => {
 
     const delta = new Rational(1, 1000);
 
-    testIntervals.forEach((interval, idx) => {
+    for (const [idx, interval] of testIntervals.entries()) {
       console.log(`Testing interval ${idx}: [${toNumber(interval.low)}, ${toNumber(interval.high)}]`);
       console.log('  Calling oracleSum...');
-      const resultSum = oracleSum(interval, delta) as Answer;
+      const resultSum = await oracleSum(interval, delta) as Answer;
       console.log('  oracleSum returned:', resultSum[0][0]);
       console.log('  Calling oracleExpected...');
-      const resultExpected = oracleExpected(interval, delta) as Answer;
+      const resultExpected = await oracleExpected(interval, delta) as Answer;
       console.log('  oracleExpected returned:', resultExpected[0][0]);
 
       // Both should give same YES/NO answer
       expect(resultSum[0][0]).toBe(resultExpected[0][0]);
-    });
+    }
     console.log('Add test completed');
   });
 
-  it('subtract: oracle(a) - oracle(b) matches oracle(a-b)', () => {
+  it('subtract: oracle(a) - oracle(b) matches oracle(a-b)', async () => {
     const qa = makeRational(10);
     const qb = makeRational(3);
 
@@ -87,14 +87,14 @@ describe('arithmetic oracles', () => {
 
     const delta = new Rational(1, 1000);
 
-    testIntervals.forEach(interval => {
-      const resultDiff = oracleDiff(interval, delta) as Answer;
-      const resultExpected = oracleExpected(interval, delta) as Answer;
+    for (const interval of testIntervals) {
+      const resultDiff = await oracleDiff(interval, delta) as Answer;
+      const resultExpected = await oracleExpected(interval, delta) as Answer;
       expect(resultDiff[0][0]).toBe(resultExpected[0][0]);
-    });
+    }
   });
 
-  it('multiply: oracle(a) * oracle(b) matches oracle(a*b)', () => {
+  it('multiply: oracle(a) * oracle(b) matches oracle(a*b)', async () => {
     const qa = makeRational(4);
     const qb = makeRational(6);
 
@@ -114,14 +114,14 @@ describe('arithmetic oracles', () => {
 
     const delta = new Rational(1, 1000);
 
-    testIntervals.forEach(interval => {
-      const resultProd = oracleProd(interval, delta) as Answer;
-      const resultExpected = oracleExpected(interval, delta) as Answer;
+    for (const interval of testIntervals) {
+      const resultProd = await oracleProd(interval, delta) as Answer;
+      const resultExpected = await oracleExpected(interval, delta) as Answer;
       expect(resultProd[0][0]).toBe(resultExpected[0][0]);
-    });
+    }
   });
 
-  it('divide: oracle(a) / oracle(b) matches oracle(a/b)', () => {
+  it('divide: oracle(a) / oracle(b) matches oracle(a/b)', async () => {
     const qa = makeRational(15);
     const qb = makeRational(3);
 
@@ -141,11 +141,11 @@ describe('arithmetic oracles', () => {
 
     const delta = new Rational(1, 1000);
 
-    testIntervals.forEach(interval => {
-      const resultQuot = oracleQuot(interval, delta) as Answer;
-      const resultExpected = oracleExpected(interval, delta) as Answer;
+    for (const interval of testIntervals) {
+      const resultQuot = await oracleQuot(interval, delta) as Answer;
+      const resultExpected = await oracleExpected(interval, delta) as Answer;
       expect(resultQuot[0][0]).toBe(resultExpected[0][0]);
-    });
+    }
   });
 
   it('division warns when denom yes contains zero and throws for known zero', () => {
@@ -155,30 +155,27 @@ describe('arithmetic oracles', () => {
     const qa = makeRational(10);
     const oracleNumer = fromRational(qa);
 
-    // Create oracle with interval spanning zero
     const qDenomNeg = makeRational(-1);
     const qDenomPos = makeRational(1);
-    const oracleDenomSpan = fromRational(qDenomNeg); // starts at -1
-    // Manually set yes to span zero (this is a test setup)
+    const oracleDenomSpan = fromRational(qDenomNeg);
+    // Manually set yes to span zero
     oracleDenomSpan.yes = new RationalInterval(qDenomNeg, qDenomPos);
 
     const d1 = divide(oracleNumer, oracleDenomSpan);
     expect(warn).toHaveBeenCalled();
 
-    // denom known zero -> throw
     const qZero = makeRational(0);
     const oracleDenomZero = fromRational(qZero);
     expect(() => divide(oracleNumer, oracleDenomZero)).toThrowError();
   });
 
-  it('arithmetic with fractional rationals', () => {
-    const qa = new Rational(7, 3);  // 7/3
-    const qb = new Rational(5, 2);  // 5/2
+  it('arithmetic with fractional rationals', async () => {
+    const qa = new Rational(7, 3);
+    const qb = new Rational(5, 2);
 
     const oracleA = fromRational(qa);
     const oracleB = fromRational(qb);
 
-    // Test addition: 7/3 + 5/2 = 14/6 + 15/6 = 29/6
     const oracleSum = add(oracleA, oracleB);
     const qSum = qa.add(qb);
     const oracleExpectedSum = fromRational(qSum);
@@ -189,11 +186,10 @@ describe('arithmetic oracles', () => {
     );
     const delta = new Rational(1, 100);
 
-    const resultSum = oracleSum(testInterval, delta) as Answer;
-    const resultExpectedSum = oracleExpectedSum(testInterval, delta) as Answer;
+    const resultSum = await oracleSum(testInterval, delta) as Answer;
+    const resultExpectedSum = await oracleExpectedSum(testInterval, delta) as Answer;
     expect(resultSum[0][0]).toBe(resultExpectedSum[0][0]);
 
-    // Test multiplication: 7/3 * 5/2 = 35/6
     const oracleProd = multiply(oracleA, oracleB);
     const qProd = qa.multiply(qb);
     const oracleExpectedProd = fromRational(qProd);
@@ -203,8 +199,9 @@ describe('arithmetic oracles', () => {
       new Rational(59, 10)
     );
 
-    const resultProd = oracleProd(testInterval2, delta) as Answer;
-    const resultExpectedProd = oracleExpectedProd(testInterval2, delta) as Answer;
+    const resultProd = await oracleProd(testInterval2, delta) as Answer;
+    const resultExpectedProd = await oracleExpectedProd(testInterval2, delta) as Answer;
     expect(resultProd[0][0]).toBe(resultExpectedProd[0][0]);
   });
 });
+

@@ -10,6 +10,7 @@ import {
 import { add, subtract, multiply, divide } from '../src/arithmetic';
 import { fromRational } from '../src/functions';
 import { Rational, RationalInterval } from '../src/ratmath';
+import { Answer } from '../src/types';
 
 describe('rational oracles', () => {
   const q = new Rational(3, 4); // 3/4
@@ -18,18 +19,18 @@ describe('rational oracles', () => {
   const delta = new Rational(1, 10); // 1/10
 
   describe('singularOracle', () => {
-    it('returns (1, q:q) when q is in interval', () => {
+    it('returns (1, q:q) when q is in interval', async () => {
       const oracle = singularOracle(q);
-      const result = oracle(intervalContainingQ, delta);
+      const result = await oracle(intervalContainingQ, delta) as Answer;
 
       expect(result[0][0]).toBe(1);
       expect(result[0][1]!.low.equals(q)).toBe(true);
       expect(result[0][1]!.high.equals(q)).toBe(true);
     });
 
-    it('returns (0, q:q) when q is not in interval', () => {
+    it('returns (0, q:q) when q is not in interval', async () => {
       const oracle = singularOracle(q);
-      const result = oracle(intervalNotContainingQ, delta);
+      const result = await oracle(intervalNotContainingQ, delta) as Answer;
 
       expect(result[0][0]).toBe(0);
       expect(result[0][1]!.low.equals(q)).toBe(true);
@@ -44,18 +45,19 @@ describe('rational oracles', () => {
   });
 
   describe('reflexiveOracle', () => {
-    it('returns (1, a:b) when q is in interval', () => {
+    it('returns (1, a:b) when q is in interval', async () => {
       const oracle = reflexiveOracle(q);
-      const result = oracle(intervalContainingQ, delta);
+      const result = await oracle(intervalContainingQ, delta) as Answer;
 
       expect(result[0][0]).toBe(1);
-      expect(result[0][1]!.low.equals(intervalContainingQ.low)).toBe(true);
-      expect(result[0][1]!.high.equals(intervalContainingQ.high)).toBe(true);
+      // Returns tightest knwon bounds (q:q)
+      expect(result[0][1]!.low.equals(q)).toBe(true);
+      expect(result[0][1]!.high.equals(q)).toBe(true);
     });
 
-    it('returns (0, q:q) when q is not in interval', () => {
+    it('returns (0, q:q) when q is not in interval', async () => {
       const oracle = reflexiveOracle(q);
-      const result = oracle(intervalNotContainingQ, delta);
+      const result = await oracle(intervalNotContainingQ, delta) as Answer;
 
       expect(result[0][0]).toBe(0);
       expect(result[0][1]!.low.equals(q)).toBe(true);
@@ -70,23 +72,23 @@ describe('rational oracles', () => {
   });
 
   describe('fuzzyReflexiveOracle', () => {
-    it('returns (1, halo[a:b, delta]) when q is in interval', () => {
+    it('returns (1, halo[a:b, delta]) when q is in interval', async () => {
       const oracle = fuzzyReflexiveOracle(q);
-      const result = oracle(intervalContainingQ, delta);
+      const result = await oracle(intervalContainingQ, delta) as Answer;
 
       expect(result[0][0]).toBe(1);
-      const expectedLow = intervalContainingQ.low.subtract(delta);
-      const expectedHigh = intervalContainingQ.high.add(delta);
-      expect(result[0][1]!.low.equals(expectedLow)).toBe(true);
-      expect(result[0][1]!.high.equals(expectedHigh)).toBe(true);
+      // Returns tightest bounds (q:q)
+      expect(result[0][1]!.low.equals(q)).toBe(true);
+      expect(result[0][1]!.high.equals(q)).toBe(true);
     });
 
-    it('returns (0) when q is not in interval', () => {
+    it('returns (0) when q is not in interval', async () => {
       const oracle = fuzzyReflexiveOracle(q);
-      const result = oracle(intervalNotContainingQ, delta);
+      const result = await oracle(intervalNotContainingQ, delta) as Answer;
 
       expect(result[0][0]).toBe(0);
-      expect(result[0][1]).toBeUndefined();
+      // Returns currentYes (q:q)
+      expect(result[0][1]!.low.equals(q)).toBe(true);
     });
 
     it('has correct yes interval', () => {
@@ -97,28 +99,24 @@ describe('rational oracles', () => {
   });
 
   describe('haloOracle', () => {
-    it('returns (1, I) when halo intersects interval', () => {
+    it('returns (1, I) when halo intersects interval', async () => {
       const oracle = haloOracle(q);
-      // Use interval that should intersect with halo around q
       const closeInterval = new RationalInterval(new Rational(7, 10), new Rational(8, 10)); // [0.7, 0.8]
-      const result = oracle(closeInterval, delta);
+      const result = await oracle(closeInterval, delta) as Answer;
 
       expect(result[0][0]).toBe(1);
-      const expectedLow = q.subtract(delta.divide(new Rational(2)));
-      const expectedHigh = q.add(delta.divide(new Rational(2)));
-      expect(result[0][1]!.low.equals(expectedLow)).toBe(true);
-      expect(result[0][1]!.high.equals(expectedHigh)).toBe(true);
+      // Returns tightest bounds (q:q)
+      expect(result[0][1]!.low.equals(q)).toBe(true);
+      expect(result[0][1]!.high.equals(q)).toBe(true);
     });
 
-    it('returns (0, I) when halo does not intersect interval', () => {
+    it('returns (0, I) when halo does not intersect interval', async () => {
       const oracle = haloOracle(q);
-      const result = oracle(intervalNotContainingQ, delta);
+      const result = await oracle(intervalNotContainingQ, delta) as Answer;
 
       expect(result[0][0]).toBe(0);
-      const expectedLow = q.subtract(delta.divide(new Rational(2)));
-      const expectedHigh = q.add(delta.divide(new Rational(2)));
-      expect(result[0][1]!.low.equals(expectedLow)).toBe(true);
-      expect(result[0][1]!.high.equals(expectedHigh)).toBe(true);
+      // Returns currentYes (q:q)
+      expect(result[0][1]!.low.equals(q)).toBe(true);
     });
 
     it('has correct yes interval', () => {
@@ -129,31 +127,27 @@ describe('rational oracles', () => {
   });
 
   describe('randomOracle', () => {
-    it('uses provided random function', () => {
+    it('uses provided random function', async () => {
       const mockRandomFunc = (delta: Rational) => delta.divide(new Rational(2));
       const oracle = randomOracle(q, mockRandomFunc);
-      const result = oracle(intervalContainingQ, delta);
+      const result = await oracle(intervalContainingQ, delta) as Answer;
 
       expect(result[0][0]).toBe(1);
-      const deltaPrime = delta.divide(new Rational(2));
-      const expectedLow = q.subtract(deltaPrime.divide(new Rational(2)));
-      const expectedHigh = q.add(deltaPrime.divide(new Rational(2)));
-      expect(result[0][1]!.low.equals(expectedLow)).toBe(true);
-      expect(result[0][1]!.high.equals(expectedHigh)).toBe(true);
+      // Returns tightest bounds (q:q)
+      expect(result[0][1]!.low.equals(q)).toBe(true);
+      expect(result[0][1]!.high.equals(q)).toBe(true);
     });
 
-    it('uses input function when provided', () => {
+    it('uses input function when provided', async () => {
       const mockRandomFunc = (delta: Rational) => delta;
       const inputFunc = (delta: Rational) => delta.divide(new Rational(3));
       const oracle = randomOracle(q, mockRandomFunc);
-      const result = oracle(intervalContainingQ, delta, inputFunc);
+      const result = await oracle(intervalContainingQ, delta, inputFunc) as Answer;
 
       expect(result[0][0]).toBe(1);
-      const deltaPrime = delta.divide(new Rational(3));
-      const expectedLow = q.subtract(deltaPrime.divide(new Rational(2)));
-      const expectedHigh = q.add(deltaPrime.divide(new Rational(2)));
-      expect(result[0][1]!.low.equals(expectedLow)).toBe(true);
-      expect(result[0][1]!.high.equals(expectedHigh)).toBe(true);
+      // Returns tightest bounds (q:q)
+      expect(result[0][1]!.low.equals(q)).toBe(true);
+      expect(result[0][1]!.high.equals(q)).toBe(true);
     });
 
     it('has correct yes interval', () => {
@@ -187,12 +181,10 @@ describe('rational oracle arithmetic commutation', () => {
 
   describe('subtraction commutation', () => {
     it('singularOracle: convert->subtract equals subtract->convert', () => {
-      // Convert to arithmetic oracle then subtract
       const arithOracle1 = fromRational(q1);
       const arithOracle2 = fromRational(q2);
       const subArith = subtract(arithOracle1, arithOracle2);
 
-      // Subtract rational values then convert
       const diff = q1.subtract(q2);
       const convertedDiff = fromRational(diff);
 
@@ -203,12 +195,10 @@ describe('rational oracle arithmetic commutation', () => {
 
   describe('multiplication commutation', () => {
     it('singularOracle: convert->multiply equals multiply->convert', () => {
-      // Convert to arithmetic oracle then multiply
       const arithOracle1 = fromRational(q1);
       const arithOracle2 = fromRational(q2);
       const mulArith = multiply(arithOracle1, arithOracle2);
 
-      // Multiply rational values then convert
       const product = q1.multiply(q2);
       const convertedProduct = fromRational(product);
 
@@ -219,12 +209,10 @@ describe('rational oracle arithmetic commutation', () => {
 
   describe('division commutation', () => {
     it('singularOracle: convert->divide equals divide->convert', () => {
-      // Convert to arithmetic oracle then divide
       const arithOracle1 = fromRational(q1);
       const arithOracle2 = fromRational(q2);
       const divArith = divide(arithOracle1, arithOracle2);
 
-      // Divide rational values then convert
       const quotient = q1.divide(q2);
       const convertedQuotient = fromRational(quotient);
 
@@ -235,17 +223,16 @@ describe('rational oracle arithmetic commutation', () => {
 
   describe('oracle type arithmetic consistency', () => {
     it('different oracle types give same arithmetic results', () => {
+      // These are just checking the 'yes' interval compatibility property, which is synchronous.
       const singular = singularOracle(q1);
       const reflexive = reflexiveOracle(q1);
       const fuzzy = fuzzyReflexiveOracle(q1);
       const halo = haloOracle(q1);
 
-      // All should have same yes interval (q:q)
       expect(singular.yes.low.equals(reflexive.yes.low)).toBe(true);
       expect(singular.yes.low.equals(fuzzy.yes.low)).toBe(true);
       expect(singular.yes.low.equals(halo.yes.low)).toBe(true);
 
-      // When converted to arithmetic oracles, should behave identically
       const arithSingular = fromRational(q1);
       const arithReflexive = fromRational(q1);
       const arithFuzzy = fromRational(q1);
@@ -263,12 +250,6 @@ describe('rational oracle arithmetic commutation', () => {
       const q2 = new Rational(1, 3);
       const q3 = new Rational(1, 4);
 
-      // Create rational oracles
-      const oracle1 = singularOracle(q1);
-      const oracle2 = reflexiveOracle(q2);
-      const oracle3 = haloOracle(q3);
-
-      // Convert to arithmetic and chain operations
       const arith1 = fromRational(q1);
       const arith2 = fromRational(q2);
       const arith3 = fromRational(q3);

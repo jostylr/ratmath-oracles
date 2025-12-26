@@ -9,21 +9,22 @@ import {
 } from '../src/rationals';
 import { add, subtract, multiply, divide } from '../src/arithmetic';
 import { Rational, RationalInterval } from '../src/ratmath';
-import { Oracle } from '../src/types';
+import { Oracle, Answer } from '../src/types';
 
 // Instrumentation Wrapper using Proxy to preserve property access
 const instrumentOracle = (target: Oracle, name: string): Oracle => {
     return new Proxy(target, {
-        apply: function (tgt, thisArg, argumentsList) {
+        apply: async function (tgt, thisArg, argumentsList) {
             const start = performance.now();
             // @ts-ignore
-            const res = Reflect.apply(tgt, thisArg, argumentsList);
+            const resPromise = Reflect.apply(tgt, thisArg, argumentsList);
+            const res = await resPromise;
             const end = performance.now();
             const duration = end - start;
             const [ab, delta] = argumentsList as [RationalInterval, Rational, any];
 
             const width = ab.high.subtract(ab.low);
-            const answer = res[0][0];
+            const answer = (res as any)[0][0]; // res is Answer
 
             console.log(`[PERF][${name}] Time: ${duration.toFixed(3)}ms | Call: [${ab.low.toString()}, ${ab.high.toString()}] (w=${width.toString()}) -> Ans: ${answer}`);
 
@@ -69,7 +70,7 @@ describe('Performance Investigation', () => {
 
     const delta = new Rational(1, 1000);
 
-    const checkOracle = (oracle: Oracle, expectedVal: Rational, name: string) => {
+    const checkOracle = async (oracle: Oracle, expectedVal: Rational, name: string) => {
         console.log(`\nStarting checkOracle for ${name}...`);
         const epsilon = new Rational(1, 100000);
         const yesTarget = new RationalInterval(
@@ -80,14 +81,14 @@ describe('Performance Investigation', () => {
         console.log(`Target Interval: [${yesTarget.low.toString()}, ${yesTarget.high.toString()}]`);
 
         const start = performance.now();
-        const resYes = oracle(yesTarget, delta);
+        const resYes = await oracle(yesTarget, delta) as Answer;
         const end = performance.now();
         console.log(`Total checkOracle Time: ${(end - start).toFixed(3)}ms`);
 
         expect(resYes[0][0]).toBe(1);
     };
 
-    it.skip('Trace 5-op chain with Division', () => {
+    it.skip('Trace 5-op chain with Division', async () => {
         // ((Zero + One) * Halo - Reflexive) / Singular + Bisection
         // Reintroduced Division / Singular to capture the bottleneck
 
@@ -104,26 +105,26 @@ describe('Performance Investigation', () => {
             .divide(r_singular)
             .add(r_bisect);
 
-        checkOracle(result, expected, '5-op-chain-PERF');
+        await checkOracle(result, expected, '5-op-chain-PERF');
     });
 
-    it('Division Micro-benchmark: Divide by increasingly wide intervals', () => {
+    it('Division Micro-benchmark: Divide by increasingly wide intervals', async () => {
         const num = instrumentOracle(singularOracle(new Rational(1), new RationalInterval(new Rational(9, 10), new Rational(11, 10))), 'Num');
 
         // Case 1: Narrow Denominator [0.4, 0.6]
         console.log('\n--- Micro-bench: Narrow Denom [0.4, 0.6] ---');
         const denNarrow = instrumentOracle(singularOracle(new Rational(1, 2), new RationalInterval(new Rational(4, 10), new Rational(6, 10))), 'DenNarrow');
         const resNarrow = divide(num, denNarrow);
-        checkOracle(resNarrow, new Rational(2), 'DivNarrow');
+        await checkOracle(resNarrow, new Rational(2), 'DivNarrow');
 
         // Case 2: Wide Denominator [0.1, 1.0]
         console.log('\n--- Micro-bench: Wide Denom [0.1, 1.0] ---');
         const denWide = instrumentOracle(singularOracle(new Rational(1, 2), new RationalInterval(new Rational(1, 10), new Rational(1))), 'DenWide');
         const resWide = divide(num, denWide);
-        checkOracle(resWide, new Rational(2), 'DivWide');
+        await checkOracle(resWide, new Rational(2), 'DivWide');
     });
 
-    it('Optimization Trigger Check', () => {
+    it('Optimization Trigger Check', async () => {
         // Goal: Verify that dividing by a wide, small-magnitude interval triggers optimization
         // and narrows the denominator.
 
@@ -135,6 +136,6 @@ describe('Performance Investigation', () => {
 
         // Check needs delta
         const expected = new Rational(2); // 1 / 0.5
-        checkOracle(res, expected, 'OptCheck');
+        await checkOracle(res, expected, 'OptCheck');
     });
 });

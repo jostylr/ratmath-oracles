@@ -1,73 +1,175 @@
 import { type Oracle, type Answer, type RationalInterval } from './types';
 import { Rational, RationalInterval as RMInterval } from './ratmath';
 import { intersect, withinDelta, makeRational, expand } from './ops';
+import { AsyncQueue, halo } from './helpers';
 
 export type ComputeFnWithState = ((ab: RationalInterval, delta: Rational) => RationalInterval) & {
   internal?: Record<string, unknown>;
 };
 
+// --- New Factories ---
+
+// makeTestOracle: The user provides a test function that answers "Yes/No/Maybe" (Answer) for a given interval.
+// The narrowing strategy is generic bisection.
+export function makeTestOracle(
+  initialYes: RationalInterval,
+  test: (ab: RationalInterval) => Answer | Promise<Answer>
+): Oracle {
+  // We keep state in the oracle object itself for simplicity of access
+  const queue = new AsyncQueue();
+
+  const oracle = (async (ab: RationalInterval, delta: Rational, input?: any): Promise<Answer> => {
+    // 1. Check against current Yes (fast path)
+    const currentYes = oracle.yes;
+    if (halo(ab, delta).contains(currentYes)) {
+      return [[1, currentYes], null];
+    }
+    const inter = ab.intersection(currentYes);
+    if (inter === null) {
+      return [[0, currentYes], null];
+    }
+
+    // 2. If ambiguous, run the test function
+    return test(ab);
+  }) as Oracle;
+
+  oracle.yes = initialYes;
+
+  // Generic Bisection Narrowing
+  oracle.narrowing = async (current: RationalInterval, precision: Rational): Promise<RationalInterval> => {
+    return queue.add(async () => {
+      let active = oracle.yes;
+      let w = active.high.subtract(active.low);
+      // If we are already small enough, return.
+      if (w.lessThanOrEqual(precision)) return active;
+
+      // Bisection loop
+      // We limit iterations to prevent infinite loops if test is inconsistent
+      let iter = 0;
+      while (w.greaterThan(precision) && iter < 100) {
+        const mid = active.low.add(active.high).divide(new Rational(2));
+        const leftHalf = new RMInterval(active.low, mid);
+        const rightHalf = new RMInterval(mid, active.high);
+
+        // Check left
+        const ansLeft = await test(leftHalf);
+        // Logic: answer is [[val, ref?], extra]
+        // If 1, root is in left.
+        // If 0, root is in right (assuming existence).
+        // If -1 (overlapping), we might need to keep both? 
+        // Simple bisection assumes unique root for now or just picks one.
+        if (ansLeft[0][0] === 1) {
+          active = leftHalf;
+        } else if (ansLeft[0][0] === 0) {
+          active = rightHalf;
+        } else {
+          // Unknown/Overlap. For now, pick intersection with prophecy if available?
+          // Or just fail to narrow?
+          // Let's assume right half if left is 0, else left? 
+          // If both are maybe, we can't easily bisect without more logic.
+          // Fallback: Just return current if we can't decide.
+          break;
+        }
+
+        w = active.high.subtract(active.low);
+        iter++;
+      }
+      oracle.yes = active;
+      return active;
+    });
+  };
+
+  return oracle;
+}
+
+// makeAlgorithmOracle: The user provides an algorithm that shrinks the interval.
+// The test is just "Does the query interval contain the (halo of) the current valid interval?"
+export function makeAlgorithmOracle(
+  initialYes: RationalInterval,
+  alg: (current: RationalInterval, precision: Rational) => Promise<RationalInterval>
+): Oracle {
+  const queue = new AsyncQueue();
+
+  const oracle = (async (ab: RationalInterval, delta: Rational, input?: any): Promise<Answer> => {
+    // Algorithm oracle primarily answers based on its current state.
+    // If the query is ambiguous given current state, it might trigger refinement?
+    // User request: "Calling narrow should update Yes... calling oracle itself may call narrow function"
+
+    const currentYes = oracle.yes;
+
+    // Fast checks
+    if (halo(ab, delta).contains(currentYes)) return [[1, currentYes], null];
+    if (ab.intersection(currentYes) === null) return [[0, currentYes], null];
+
+    // Ambiguous. Try to narrow?
+    // If the current width is much larger than delta, we should narrow.
+    const w = currentYes.high.subtract(currentYes.low);
+    if (w.greaterThan(delta)) {
+      // Refine to delta
+      const refined = await oracle.narrowing!(currentYes, delta);
+      // Re-check
+      if (halo(ab, delta).contains(refined)) return [[1, refined], null];
+      if (ab.intersection(refined) === null) return [[0, refined], null];
+      // Still ambiguous?
+      return [[-1, refined], null];
+    }
+
+    return [[-1, currentYes], null];
+  }) as Oracle;
+
+  oracle.yes = initialYes;
+
+  oracle.narrowing = async (current: RationalInterval, precision: Rational): Promise<RationalInterval> => {
+    return queue.add(async () => {
+      // We pass the *current state* of oracle as 'current' usually, or ignoring the arg and using oracle.yes
+      const result = await alg(oracle.yes, precision);
+      oracle.yes = result;
+      return result;
+    });
+  };
+
+  return oracle;
+}
+
+// --- Legacy Wrappers / Helpers ---
+
+// Legacy makeOracle mapped to makeAlgorithmOracle somewhat, but 'compute' was specific.
+// We will deprecate calling it directly or re-implement it using makeAlgorithmOracle.
+// The old 'compute' took (ab, delta) and returned a refined interval.
+// That is essentially 'narrow'.
 export function makeOracle(
   yes: RationalInterval,
   compute: (ab: RationalInterval, delta: Rational) => RationalInterval | Promise<RationalInterval>
 ): Oracle {
-  const fn = (async (ab: RationalInterval, delta: Rational): Promise<Answer> => {
-    const target = ab;
-    const currentYes = (fn as Oracle).yes;
-
-    // Check definitive cases against target expanded by delta
-    const expandedTarget = expand(target, delta);
-    const interYT = intersect(currentYes, expandedTarget);
-
-    if (!interYT) {
-      // Disjoint: definitely No
-      return [[0, currentYes], null];
-    }
-
-    // If currentYes is fully contained in expandedTarget, definitely Yes
-    if (interYT.low.equals(currentYes.low) && interYT.high.equals(currentYes.high)) {
-      return [[1, currentYes], null];
-    }
-
-    // Partial overlap: ambiguous. Force refinement.
-    const prophecy = await compute(target, delta);
-    const interYY = intersect(prophecy, currentYes);
-    if (interYY) {
-      const refined = interYY;
-      (fn as Oracle).yes = refined; // Only update yes when compute is called and intersection exists
-      const interWithTarget = intersect(refined, target);
-      const ans = !!interWithTarget && withinDelta(refined, target, delta);
-      return [[ans ? 1 : 0, refined], null];
-    }
-    // No intersection: leave yes unchanged and report based on current state
-    return [[0, currentYes], null];
-  }) as Oracle;
-  fn.yes = yes;
-  return fn;
+  // Adapter: 'compute' was used to refine.
+  const alg = async (current: RationalInterval, precision: Rational) => {
+    return compute(current, precision);
+  };
+  return makeAlgorithmOracle(yes, alg);
 }
 
 export function fromRational(q: Rational): Oracle {
   const rq = q instanceof Rational ? q : new Rational(q as any);
   const yes: RationalInterval = new RMInterval(rq, rq);
-  return makeOracle(yes, () => yes);
+  // Algorithm that never narrows further because it's already a point
+  return makeAlgorithmOracle(yes, async () => yes);
 }
 
 export function fromInterval(i: RationalInterval): Oracle {
   const yes = i;
-  return makeOracle(yes, () => yes);
+  return makeAlgorithmOracle(yes, async () => yes);
 }
 
 export function fromTestFunction(testFn: (i: RationalInterval) => boolean): Oracle {
-  // Start with a broad yes interval if not otherwise provided. Here, [-1e9, 1e9].
   const yes: RationalInterval = new RMInterval(makeRational(-1e9), makeRational(1e9));
-  return makeOracle(yes, (ab) => {
-    if (testFn(ab)) return ab;
-    // Return a nearby point outside to force No
-    const outside = new RMInterval(makeRational(1e12), makeRational(1e12));
-    return outside;
-  });
+  // Map boolean to Answer
+  const testAdapter = (i: RationalInterval): Answer => {
+    const res = testFn(i);
+    return res ? [[1, i], null] : [[0, i]/*roughly*/, null];
+  };
+  return makeTestOracle(yes, testAdapter);
 }
 
-// Expose a way to create a custom oracle for tests or advanced usage.
 export function makeCustomOracle(yes: RationalInterval, compute: ComputeFnWithState): Oracle {
   return makeOracle(yes, compute);
 }

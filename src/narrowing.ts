@@ -3,45 +3,12 @@ import { RationalInterval as RMInterval, Rational } from './ratmath';
 import { midpoint, widthRational } from './ops';
 
 export async function narrow(oracle: Oracle, precision: Rational): Promise<RationalInterval> {
-  let current = oracle.yes;
-  const targetWidth = precision.abs();
-  let guard = 0;
-
-  while (widthRational(current).greaterThan(targetWidth) && guard++ < 10_000) {
-    if (oracle.narrowing) {
-      const next = await oracle.narrowing(current, precision);
-      if (next.equals(current)) break;
-      current = next;
-    } else {
-      const m = midpoint(current);
-      const left: RationalInterval = new RMInterval(current.low, m);
-      const right: RationalInterval = new RMInterval(m, current.high);
-
-      // Use a smaller delta for internal bisection to better distinguish sides
-      const internalDelta = precision.divide(new Rational(10));
-      const leftAns = await oracle(left, internalDelta);
-      const rightAns = await oracle(right, internalDelta);
-
-      const leftVal = leftAns[0][0];
-      const rightVal = rightAns[0][0];
-
-      if (leftVal === 1) {
-        current = left;
-      } else if (rightVal === 1) {
-        current = right;
-      } else if (leftVal === 0 && rightVal !== 0) {
-        current = right;
-      } else if (rightVal === 0 && leftVal !== 0) {
-        current = left;
-      } else {
-        // Both -1 or contradictory 0s. Cannot safely narrow further.
-        break;
-      }
-    }
+  if (oracle.narrowing) {
+    const next = await oracle.narrowing(oracle.yes, precision);
+    oracle.yes = next;
+    return next;
   }
-
-  oracle.yes = current;
-  return current;
+  throw new Error("Oracle does not implement narrowing method. All oracles must provide a narrowing strategy.");
 }
 
 export function refine(oracle: Oracle, precision: Rational): Oracle {

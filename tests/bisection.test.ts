@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'bun:test';
 import { Rational, RationalInterval } from '../src/ratmath';
 import { bisectionOracle, singularOracle } from '../src/rationals';
+import { Answer } from '../src/types';
 
 describe('Bisection Oracle and initialYes', () => {
-    it('refines ri until contained in halo', () => {
+    it('refines ri until contained in halo', async () => {
         const target = new Rational(25, 100); // 0.25
         const start = new Rational(75, 100); // 0.75
         const oracle = bisectionOracle(target, start);
@@ -11,17 +12,17 @@ describe('Bisection Oracle and initialYes', () => {
         const ab = new RationalInterval(new Rational(25, 100), new Rational(30, 100)); // [0.25, 0.3]
         const delta = new Rational(1, 10); // halo is [0.15, 0.4]
 
-        const result = oracle(ab, delta);
+        const result = await oracle(ab, delta) as Answer;
         expect(result[0][0]).toBe(1);
-        // After refinement, ri should be 0.375, so interval is [0.25, 0.375]
-        // [0.25, 0.375] is contained in [0.15, 0.4]
+        // After refinement, ri should be refined enough to fit in halo.
+        // New algorithm might refine deeper than original, but that preserves correctness.
         expect(result[0][1]!.high.lessThanOrEqual(new Rational(4, 10))).toBe(true);
     });
 
-    it('returns 0 when no intersection', () => {
+    it('returns 0 when no intersection', async () => {
         const oracle = bisectionOracle(new Rational(1, 4), new Rational(3, 4));
         const farAway = new RationalInterval(new Rational(1), new Rational(2));
-        const result = oracle(farAway, new Rational(1, 10));
+        const result = await oracle(farAway, new Rational(1, 10)) as Answer;
         expect(result[0][0]).toBe(0);
     });
 
