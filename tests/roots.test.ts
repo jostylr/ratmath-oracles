@@ -6,9 +6,9 @@ import { narrow } from '../src/narrowing';
 
 describe('Root Finding Oracles', () => {
 
-    const checkOracle = (oracle: Oracle, expectedVal: Rational, name: string) => {
+    const checkOracle = async (oracle: Oracle, expectedVal: Rational, name: string) => {
         const delta = new Rational(1, 10000); // High precision
-        const out = narrow(oracle, delta);
+        const out = await narrow(oracle, delta);
 
         if (!out.containsValue(expectedVal)) {
             console.error(`Failed ${name} (Correctness): narrow result [${out.low.toString()}, ${out.high.toString()}] does not contain ${expectedVal.toString()}`);
@@ -21,17 +21,17 @@ describe('Root Finding Oracles', () => {
     };
 
     describe('nRoot (Newton)', () => {
-        it('Square root of 2', () => {
+        it('Square root of 2', async () => {
             // x^2 = 2
             const q = new Rational(2);
             const guess = new Rational(3, 2); // 1.5
-            const oracle = nRoot(q, guess, 2);
+            const oracle = await nRoot(q, guess, 2);
 
             // Expected: sqrt(2) is irrational, but we check if it converges to an interval containing it.
             // We can check if square of interval contains 2.
 
             const delta = new Rational(1, 1000000);
-            const out = narrow(oracle, delta);
+            const out = await narrow(oracle, delta);
             const sqLow = out.low.pow(2);
             const sqHigh = out.high.pow(2);
 
@@ -44,27 +44,27 @@ describe('Root Finding Oracles', () => {
             expect(w.lessThan(delta)).toBe(true);
         });
 
-        it('Cube root of 27', () => {
+        it('Cube root of 27', async () => {
             const q = new Rational(27);
             const guess = new Rational(5);
-            const oracle = nRoot(q, guess, 3);
+            const oracle = await nRoot(q, guess, 3);
 
             checkOracle(oracle, new Rational(3), 'cbrt(27)');
         });
     });
 
     describe('nRootTest', () => {
-        it('Square root of 4 is 2', () => {
+        it('Square root of 4 is 2', async () => {
             const q = new Rational(4);
             const yes = new RationalInterval(new Rational(0), new Rational(4));
             const oracle = nRootTest(q, yes, 2);
 
-            checkOracle(oracle, new Rational(2), 'sqrt(4)=2');
+            await checkOracle(oracle, new Rational(2), 'sqrt(4)=2');
         });
     });
 
     describe('KantorovichRoot', () => {
-        it('Solve x^2 - 2 = 0', () => {
+        it('Solve x^2 - 2 = 0', async () => {
             // f(x) = x^2 - 2
             const f = (x: Rational) => x.pow(2).subtract(new Rational(2));
             // f'(x) = 2x
@@ -82,7 +82,7 @@ describe('Root Finding Oracles', () => {
             const oracle = KantorovichRoot({ f, fprime, guess, domain, maxpp, minp });
 
             const delta = new Rational(1, 1000000);
-            const out = narrow(oracle, delta);
+            const out = await narrow(oracle, delta);
 
             const sqLow = out.low.pow(2);
             const sqHigh = out.high.pow(2);
@@ -93,14 +93,14 @@ describe('Root Finding Oracles', () => {
     });
 
     describe('IVTRoot', () => {
-        it('Solve x^2 - 2 = 0 on [1, 2]', () => {
+        it('Solve x^2 - 2 = 0 on [1, 2]', async () => {
             const f = (x: Rational) => x.pow(2).subtract(new Rational(2));
             const initial = new RationalInterval(new Rational(1), new Rational(2));
 
             const oracle = IVTRoot(f, initial);
 
             const delta = new Rational(1, 100);
-            const out = narrow(oracle, delta);
+            const out = await narrow(oracle, delta);
 
             const sqLow = out.low.pow(2);
             const sqHigh = out.high.pow(2);

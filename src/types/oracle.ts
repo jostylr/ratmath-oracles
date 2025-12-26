@@ -7,7 +7,10 @@ import { Rational, RationalInterval } from '../ratmath';
 export type Answer = [[1 | 0 | -1, RationalInterval?], any];
 
 export interface Oracle {
-  (ab: RationalInterval, delta: Rational, input?: any): Answer;
+export type OracleResult = Answer | Promise<Answer>;
+
+export interface Oracle {
+  (ab: RationalInterval, delta: Rational, input?: any): OracleResult;
   yes: RationalInterval;
   /* If true, the oracle's yes interval will be updated when a prophecy is generated */
   update?: boolean;
@@ -21,5 +24,5 @@ export interface Oracle {
   internal?: (...args: any[]) => any;
   /* Optional narrowing function that can be used instead of bisection.
      Should return a more precise interval containing the value. */
-  narrowing?: (current: RationalInterval, precision: Rational) => RationalInterval;
+  narrowing?: (current: RationalInterval, precision: Rational) => RationalInterval | Promise<RationalInterval>;
 }

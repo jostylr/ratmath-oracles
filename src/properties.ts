@@ -16,7 +16,7 @@ This is, for a given oracle, designed to test whether
 */
 
 import { Rational, RationalInterval } from './ratmath';
-import { Answer, Oracle } from './types';
+import { Oracle, OracleResult, Answer } from './types';
 
 
 const randomRational = (upperNumerator = 1000, upperDenominator = 100): Rational => {
@@ -29,7 +29,7 @@ const lengthScale = new Rational(1, 10); // Scale factor for delta computation
 
 /* this takes in an oracle, an interval and an optional delta, creating  a delta equal to one‑tenth of the interval's length if not present,
 and then invokes the oracle with that delta, returning its answer. */
-const helper = (R: Oracle, ab: RationalInterval, delta?: Rational): Answer => {
+const helper = async (R: Oracle, ab: RationalInterval, delta?: Rational): Promise<Answer> => {
   if (delta) {
     return R(ab, delta);
   }
@@ -47,15 +47,15 @@ of the oracle. This looks at R, grabs the Yes interval if no interval is provide
 gets the result from the helper function. It should return a positive result. If not, it returns false.
 */
 
-const testExistence = (R: Oracle, {interval, delta} : {interval?: RationalInterval, delta?: Rational}): boolean => {
+const testExistence = async (R: Oracle, { interval, delta }: { interval?: RationalInterval, delta?: Rational }): Promise<boolean> => {
   // Grab the yes interval from the oracle
-  if(!interval) {
+  if (!interval) {
     interval = R.yes;
   }
   if (!interval) return false;
 
   // Run the helper function on the yes interval
-  const result = helper(R, interval, delta );
+  const result = await helper(R, interval, delta);
   return result[0][0] === 1;
 };
 
@@ -65,7 +65,7 @@ An interval can be given as well as a point in it. If no point is given, the mid
 Also the delta can be given or not. 
 */
 
-const testSeparation = (R: Oracle, {prophecy, midpoint, delta}: {prophecy?: RationalInterval, midpoint?: Rational, delta?: Rational}): boolean => {
+const testSeparation = async (R: Oracle, { prophecy, midpoint, delta }: { prophecy?: RationalInterval, midpoint?: Rational, delta?: Rational }): Promise<boolean> => {
   // Split the prophecy interval into two subintervals at the midpoint
   if (!prophecy) {
     prophecy = R.yes;
@@ -82,8 +82,8 @@ const testSeparation = (R: Oracle, {prophecy, midpoint, delta}: {prophecy?: Rati
   const rightInterval = new RationalInterval(midpoint, prophecy.high);
 
   // Check if at least one of the oracle calls on these subintervals returns a positive result (1)
-  const leftResult = helper(R, leftInterval, delta);  
-  const rightResult = helper(R, rightInterval, delta);
+  const leftResult = await helper(R, leftInterval, delta);
+  const rightResult = await helper(R, rightInterval, delta);
 
   return leftResult[0][0] === 1 || rightResult[0][0] === 1;
 };
@@ -94,7 +94,7 @@ It computes a delta value that is scaled based on the scale or is one-tenth of t
 It checks that the oracle call on the disjoint interval with this delta does not return a positive result (1).
 */
 
-const testDisjointness = (R: Oracle, {prophecy, disjoint, scale = lengthScale}: {prophecy?: RationalInterval, disjoint: RationalInterval, scale?: Rational}): boolean => {
+const testDisjointness = async (R: Oracle, { prophecy, disjoint, scale = lengthScale }: { prophecy?: RationalInterval, disjoint: RationalInterval, scale?: Rational }): Promise<boolean> => {
   if (!prophecy) {
     prophecy = R.yes;
     if (!prophecy) return false; // If there's no prophecy, we can't proceed
@@ -113,7 +113,7 @@ const testDisjointness = (R: Oracle, {prophecy, disjoint, scale = lengthScale}: 
   // Delta is a scale of that distance.
   const delta: Rational = distance.multiply(scale);
   // Run the oracle with the disjoint interval and the computed delta.
-  const result = R(disjoint, delta);
+  const result = await R(disjoint, delta);
   return result[0][0] !== 1;
 }
 
@@ -125,7 +125,7 @@ It checks if the test interval contains the prophecy interval and if so, ensures
 If the test interval does not contain the prophecy interval, it returns true by default.
 A delta value is optional, with the default computed as one-tenth of the test interval's length.
 */
- const testConsistency = (R: Oracle, {prophecy, testInterval, delta}: {prophecy?: RationalInterval, testInterval?: RationalInterval, delta?: Rational}): boolean => {
+const testConsistency = async (R: Oracle, { prophecy, testInterval, delta }: { prophecy?: RationalInterval, testInterval?: RationalInterval, delta?: Rational }): Promise<boolean> => {
   if (!prophecy) {
     prophecy = R.yes;
     if (!prophecy) return true; // If there's no prophecy, we can't proceed, return true by default
@@ -140,15 +140,15 @@ A delta value is optional, with the default computed as one-tenth of the test in
     testInterval = new RationalInterval(prophecy.low.subtract(leftPadding.multiply(proLength)), prophecy.high.add(rightPadding.multiply(proLength)));
   }
   // Check if the test interval contains the prophecy interval
-  if (testInterval.low.lessThanOrEqual(prophecy.low) && testInterval.high.greaterThanOrEqual(prophecy.high)) { 
+  if (testInterval.low.lessThanOrEqual(prophecy.low) && testInterval.high.greaterThanOrEqual(prophecy.high)) {
     // Run the oracle on the test interval with a small delta
-    const result = helper(R, testInterval, delta);
+    const result = await helper(R, testInterval, delta);
     return result[0][0] !== 0; // Ensure the result is not negative (0)
-    } else {
+  } else {
     return true; // If the test interval does not contain the prophecy, return true by default
   }
 }
-  
+
 /*Closed 
 This test the Closed Property. It takes in an oracle, a point a, an optional second point, and an optional delta.
 If no second point is provided, the interval is the interval a:a.
@@ -157,9 +157,9 @@ The point a ought to have the property that it for each delta >0, the delta neig
 This is not checked here.
 */
 
-const testClosed = (R: Oracle, {point, secondPoint, delta}: {point: Rational, secondPoint?: Rational, delta?: Rational}): boolean => {
+const testClosed = async (R: Oracle, { point, secondPoint, delta }: { point: Rational, secondPoint?: Rational, delta?: Rational }): Promise<boolean> => {
   const interval = secondPoint ? new RationalInterval(point, secondPoint) : new RationalInterval(point, point);
-  const result = helper(R, interval, delta);
+  const result = await helper(R, interval, delta);
   return result[0][0] === 1;
 };
 
@@ -170,15 +170,15 @@ it checks that the oracle call with any larger delta also does not return -1.
 If the initial call returns -1, it returns true by default.
 */
 
-const testReasonableness = (R: Oracle, {interval, delta}: {interval: RationalInterval, delta: Rational}): boolean => {
-  const initialResult = R(interval, delta);
+const testReasonableness = async (R: Oracle, { interval, delta }: { interval: RationalInterval, delta: Rational }): Promise<boolean> => {
+  const initialResult = await R(interval, delta);
   if (initialResult[0][0] === -1) {
     return true; // If the initial result is -1, return true by default
   }
   // Check for a few larger delta values
   const largerDeltas = [delta.multiply(new Rational(2)), delta.multiply(new Rational(3)), delta.add(new Rational(1))];
   for (const largerDelta of largerDeltas) {
-    const result = R(interval, largerDelta);
+    const result = await R(interval, largerDelta);
     if (result[0][0] === -1) {
       return false; // If any larger delta returns -1, the property is violated
     }

@@ -7,9 +7,9 @@ import { makeOracle } from './functions';
 
 export function negate(a: Oracle): Oracle {
   const yes = (a.yes as RMInterval).negate();
-  return makeOracle(yes, (target: RationalInterval, delta: Rational) => {
+  return makeOracle(yes, async (target: RationalInterval, delta: Rational) => {
     // Refine operand to half delta
-    narrow(a, delta);
+    await narrow(a, delta);
     const ans = a.yes.negate();
     return ans;
   });
@@ -17,28 +17,32 @@ export function negate(a: Oracle): Oracle {
 
 export function add(a: Oracle, b: Oracle): Oracle {
   const yes = addIntervals(a.yes, b.yes);
-  return makeOracle(yes, (_target, delta) => {
+  return makeOracle(yes, async (_target, delta) => {
     // Refine both operands to half the delta (conservative)
     const subDelta = delta.divide(new Rational(2));
-    narrow(a, subDelta);
-    narrow(b, subDelta);
+    await Promise.all([
+      narrow(a, subDelta),
+      narrow(b, subDelta)
+    ]);
     return addIntervals(a.yes, b.yes);
   });
 }
 
 export function subtract(a: Oracle, b: Oracle): Oracle {
   const yes = subIntervals(a.yes, b.yes);
-  return makeOracle(yes, (_target, delta) => {
+  return makeOracle(yes, async (_target, delta) => {
     const subDelta = delta.divide(new Rational(2));
-    narrow(a, subDelta);
-    narrow(b, subDelta);
+    await Promise.all([
+      narrow(a, subDelta),
+      narrow(b, subDelta)
+    ]);
     return subIntervals(a.yes, b.yes);
   });
 }
 
 export function multiply(a: Oracle, b: Oracle): Oracle {
   const yes = mulIntervals(a.yes, b.yes);
-  return makeOracle(yes, (_target, delta) => {
+  return makeOracle(yes, async (_target, delta) => {
     // Multiplication error propagation: |Δ(ab)| ≈ |a|Δb + |b|Δa
     // If we set Δa = Δb = ε, then |Δ(ab)| ≈ (|a| + |b|)ε
     // Using M = max(|a|, |b|), |Δ(ab)| ≤ 2Mε
@@ -52,8 +56,10 @@ export function multiply(a: Oracle, b: Oracle): Oracle {
       ? delta
       : delta.divide(M.multiply(new Rational(2)));
 
-    narrow(a, subDelta);
-    narrow(b, subDelta);
+    await Promise.all([
+      narrow(a, subDelta),
+      narrow(b, subDelta)
+    ]);
     return mulIntervals(a.yes, b.yes);
   });
 }
@@ -88,7 +94,7 @@ export function divide(numer: Oracle, denom: Oracle): Oracle {
   }
   const yes = divIntervals(numer.yes, safeDen);
 
-  return makeOracle(yes, (_ab, delta) => {
+  return makeOracle(yes, async (_ab, delta) => {
     // Division error propagation: |Δ(n/d)| ≈ |Δn/d| + |nΔd/d^2| = (ε/|d|) * (1 + |n/d|) = ε(|d|+|n|)/d^2
     // To get |Δ(n/d)| < delta, we need ε < delta * d^2 / (|d| + |n|)
     const nMag = getMagnitude(numer.yes);
@@ -102,7 +108,8 @@ export function divide(numer: Oracle, denom: Oracle): Oracle {
     // If dYes is already narrower than delta, narrow does nothing.
     // Ideally we want to refine it enough to separate from zero if possible, or just reduce width.
     if (dMin.lessThan(new Rational(1))) {
-      const refinedDenom = narrow(denom, delta);
+      // await speculative narrowing
+      const refinedDenom = await narrow(denom, delta);
       denom.yes = refinedDenom;
       // Re-read dYes and dMin after narrowion
       dMin = getMinMagnitude(denom.yes);
@@ -118,8 +125,10 @@ export function divide(numer: Oracle, denom: Oracle): Oracle {
       subDelta = delta.multiply(dMinSq).divide(denominatorForDelta);
     }
 
-    narrow(numer, subDelta);
-    narrow(denom, subDelta);
+    await Promise.all([
+      narrow(numer, subDelta),
+      narrow(denom, subDelta)
+    ]);
 
     const dNow = denom.yes;
     if (containsZero(dNow)) {

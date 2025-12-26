@@ -8,9 +8,9 @@ export type ComputeFnWithState = ((ab: RationalInterval, delta: Rational) => Rat
 
 export function makeOracle(
   yes: RationalInterval,
-  compute: (ab: RationalInterval, delta: Rational) => RationalInterval
+  compute: (ab: RationalInterval, delta: Rational) => RationalInterval | Promise<RationalInterval>
 ): Oracle {
-  const fn = ((ab: RationalInterval, delta: Rational): Answer => {
+  const fn = (async (ab: RationalInterval, delta: Rational): Promise<Answer> => {
     const target = ab;
     const currentYes = (fn as Oracle).yes;
 
@@ -29,7 +29,7 @@ export function makeOracle(
     }
 
     // Partial overlap: ambiguous. Force refinement.
-    const prophecy = compute(target, delta);
+    const prophecy = await compute(target, delta);
     const interYY = intersect(prophecy, currentYes);
     if (interYY) {
       const refined = interYY;

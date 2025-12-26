@@ -50,11 +50,11 @@ describe('Rational Arithmetic Combinations', () => {
     const delta = new Rational(1, 1000);
 
     // Helper to verify oracle result
-    const checkOracle = (oracle: Oracle, expectedVal: Rational, name: string) => {
+    const checkOracle = async (oracle: Oracle, expectedVal: Rational, name: string) => {
         // 1. Check narrowing (Yes)
         // Instead of asking a fixed small interval, we use the narrow tool
         // which the user intended to be the primary way to interact with oracles.
-        const out = narrow(oracle, delta);
+        const out = await narrow(oracle, delta);
 
         if (!out.containsValue(expectedVal)) {
             console.error(`Failed ${name} (Correctness): narrow result [${out.low.toString()}, ${out.high.toString()}] does not contain ${expectedVal.toString()}`);
@@ -71,7 +71,7 @@ describe('Rational Arithmetic Combinations', () => {
             expectedVal.subtract(epsilon),
             expectedVal.add(epsilon)
         );
-        const resYes = oracle(yesTarget, delta);
+        const resYes = await oracle(yesTarget, delta);
         if (resYes[0][0] !== 1) {
             console.error(`Failed ${name} (Expected Yes): result=${resYes[0][0]}, expected=1. Prophecy: [${resYes[0][1]?.low.toString()}, ${resYes[0][1]?.high.toString()}]`);
         }
@@ -83,7 +83,7 @@ describe('Rational Arithmetic Combinations', () => {
             expectedVal.add(new Rational(10)),
             expectedVal.add(new Rational(11))
         );
-        const resNo = oracle(noTarget, delta);
+        const resNo = await oracle(noTarget, delta);
         if (resNo[0][0] !== 0) {
             console.error(`Failed ${name} (Expected No): result=${resNo[0][0]}, expected=0`);
         }
@@ -91,49 +91,49 @@ describe('Rational Arithmetic Combinations', () => {
     };
 
     describe('Single Operations', () => {
-        it('Add: Mixed types', () => {
+        it('Add: Mixed types', async () => {
             // Singular + Reflexive
             const sum1 = add(O_Singular, O_Reflexive);
-            checkOracle(sum1, r_singular.add(r_reflexive), 'Singular+Reflexive');
+            await checkOracle(sum1, r_singular.add(r_reflexive), 'Singular+Reflexive');
 
             // Zero + Halo
             const sum2 = add(O_Zero, O_Halo);
-            checkOracle(sum2, r_zero.add(r_halo), 'Zero+Halo');
+            await checkOracle(sum2, r_zero.add(r_halo), 'Zero+Halo');
         });
 
-        it('Subtract: Mixed types', () => {
+        it('Subtract: Mixed types', async () => {
             // Fuzzy - Bisection
             const sub1 = subtract(O_Fuzzy, O_Bisection);
-            checkOracle(sub1, r_fuzzy.subtract(r_bisect), 'Fuzzy-Bisection');
+            await checkOracle(sub1, r_fuzzy.subtract(r_bisect), 'Fuzzy-Bisection');
 
             // One - Random
             const sub2 = subtract(O_One, O_Random);
-            checkOracle(sub2, r_one.subtract(r_random), 'One-Random');
+            await checkOracle(sub2, r_one.subtract(r_random), 'One-Random');
         });
 
-        it('Multiply: Mixed types', () => {
+        it('Multiply: Mixed types', async () => {
             // Singular * Zero
             const mul1 = multiply(O_Singular, O_Zero);
-            checkOracle(mul1, r_singular.multiply(r_zero), 'Singular*Zero');
+            await checkOracle(mul1, r_singular.multiply(r_zero), 'Singular*Zero');
 
             // Halo * Reflexive
             const mul2 = multiply(O_Halo, O_Reflexive);
-            checkOracle(mul2, r_halo.multiply(r_reflexive), 'Halo*Reflexive');
+            await checkOracle(mul2, r_halo.multiply(r_reflexive), 'Halo*Reflexive');
         });
 
-        it('Divide: Mixed types', () => {
+        it('Divide: Mixed types', async () => {
             // Bisection / One
             const div1 = divide(O_Bisection, O_One);
-            checkOracle(div1, r_bisect.divide(r_one), 'Bisection/One');
+            await checkOracle(div1, r_bisect.divide(r_one), 'Bisection/One');
 
             // Random / Fuzzy
             const div2 = divide(O_Random, O_Fuzzy);
-            checkOracle(div2, r_random.divide(r_fuzzy), 'Random/Fuzzy');
+            await checkOracle(div2, r_random.divide(r_fuzzy), 'Random/Fuzzy');
         });
     });
 
     describe('Complex Combinations', () => {
-        it('(A + B) * (C - D)', () => {
+        it('(A + B) * (C - D)', async () => {
             // (Singular + Reflexive) * (Halo - Zero)
             // (1/2 + 1/3) * (5 - 0) = 5/6 * 5 = 25/6
             const term1 = add(O_Singular, O_Reflexive);
@@ -141,14 +141,13 @@ describe('Rational Arithmetic Combinations', () => {
             const result = multiply(term1, term2);
 
             const expected = r_singular.add(r_reflexive).multiply(r_halo.subtract(r_zero));
-            checkOracle(result, expected, '(S+R)*(H-Z)');
+            await checkOracle(result, expected, '(S+R)*(H-Z)');
         });
 
-        it('A / (B + C) * D - E', () => {
+        it('A / (B + C) * D - E', async () => {
             // One / (Random + Bisection) * Fuzzy - Singular
             // 1 / (1/10 + 3/4) * (-2/5) - 1/2
             // 1 / (0.1 + 0.75) * (-0.4) - 0.5
-            // 1 / 0.85 * (-0.4) - 0.5
             // ~ 1.176 * -0.4 - 0.5
             // ~ -0.47 - 0.5 = -0.97
 
@@ -161,10 +160,10 @@ describe('Rational Arithmetic Combinations', () => {
                 .multiply(r_fuzzy)
                 .subtract(r_singular);
 
-            checkOracle(result, expected, '1/(Rnd+Bis)*Fuz-Sing');
+            await checkOracle(result, expected, '1/(Rnd+Bis)*Fuz-Sing');
         });
 
-        it('Chain 5 operations', () => {
+        it('Chain 5 operations', async () => {
             // ((A + B) * C - D) * E + F -- changed / E to * E to avoid division complexity bottleneck
             // ((Zero + One) * Halo - Reflexive) * Singular + Bisection
             // ((0 + 1) * 5 - 1/3) * (1/2) + 3/4
@@ -184,7 +183,7 @@ describe('Rational Arithmetic Combinations', () => {
                 .multiply(r_singular) // changed to multiply
                 .add(r_bisect);
 
-            checkOracle(result, expected, '5-op-chain');
+            await checkOracle(result, expected, '5-op-chain');
         });
     });
 });
