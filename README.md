@@ -2,14 +2,14 @@
 
 This is an extension of the RatMath library. It uses the rational interval arithmetic of that library to represent reals via an oracle structure.
 
-This library uses the notion of real numbers as presented in [Reals as Oracles](https://github.com/jostylr/reals-as-oracles). In programming form, a real number oracle is a function that takes in `R(a:b, delta, {} )~`and outputs a tuple (array as javascript) of the form `=[1 || 0 || -1, c:d || null, {}]` where a:b  and c:d are rational intervals, delta is a rational number, and the third entry in either can be whatever data is required for the internals of the function. The intervals c:d that are in the outputs are called prophecies and are considered to contain the real number. These functions need not be deterministic though ideally the third argument contains state that converts most of the real functions into something reproducible.
+This library uses the notion of real numbers as presented in [Reals as Oracles](https://github.com/jostylr/reals-as-oracles). In programming form, a real number oracle is an async function that takes in `(ab, delta, input)` and outputs a `Promise` of a tuple (array as javascript) of the form `[[1 || 0 || -1, c:d || null], extra]` where `a:b` and `c:d` are rational intervals, `delta` is a rational number, and `extra` can be whatever data is required for the internals of the function. The intervals `c:d` that are in the outputs are called prophecies and represent the best known bounds for the real number.
 
 Any function that is to be considered a real number oracle must satisfy the following requirements (third arguments are auxiliary and suppressed in the notation that follows):
 1. Range. For R(a:b, delta), the output should satisfy one of
   a. (1, c:d) c:d is a subinterval of the delta-neighborhood of a:b and intersects a:b
   b. (0, c:d) c:d is disjoint from a:b
   c. (0, null). There exists a delta' such that no prophecy intersects a:b and is contained in the delta'-neighborhood a:b. This allows for not computing a prophecy such as when directly checking if an interval works.
-  d. (-1, null). This should not happen for an infinitely capable system. Here it is a flag that a computational limit has been reached and none of the three items above have been established. Formally, this is an option of there being no
+  d. (-1, c:d). This is a flag that a computational limit has been reached or the query is ambiguous. `c:d` is the current best known interval for the real.
 2. Existence. There should be an interval a:b and delta such that R(a:b, delta) = (1, c:d) for some interval c:d. It is reasonable in a practical system to have R(c:d, delta) = (1, c:d) holding true. The third argument can hold a prophecy which can satisfy this in a minimal way.
 3. Separation. Given any prophecy c:d and m contained in c:d and a delta > 0, then at least one of the following holds true: R(c:m, delta) = 1 or R(m:d, delta)=1.
 4. Disjointness. If c:d is a prophecy and a:b is disjoint from c:d and delta is less than the distance between c:d and a:b, then R(a:b, delta) does not have an output containing 1.
@@ -28,29 +28,27 @@ These should be established for any given oracle one is working with. Also, from
 
 This is developed with Bun, but should work in various javascript runtimes.
 
-## Quick Start (sync API)
+## Quick Start (Async API)
 
 ```ts
 import { fromRational } from './src/functions';
 import { add, divide } from './src/arithmetic';
-import { bisect } from './src/narrowing';
+import { narrow } from './src/narrowing';
 import { makeRational } from './src/ops';
 
 // Create oracles for 2 and 3
 const two = fromRational(makeRational(2));
 const three = fromRational(makeRational(3));
 
-// Arithmetic behaves like normal math (synchronously)
+// Arithmetic combinations are synchronous to build
 const five = add(two, three);
 
-// Narrow an interval to target precision
-const approx = bisect(five, makeRational(0.001));
+// Narrow an interval to target precision (MUST be awaited)
+const approx = await narrow(five, makeRational(0.001));
 // approx is a RationalInterval around 5 with width <= 0.001
 
-// Division semantics:
-// - If denominator is known to be 0 at definition -> throws
-// - If denominator yes-interval contains 0 at definition -> warns via logger
-// - When producing an interval at a given delta, if 0 remains -> throws
+// Direct calls to oracles are also async
+const result = await five(approx, makeRational(0.0001));
 ```
 
 Note: Internal interval helpers currently use a minimal numeric fallback; they are structured to be replaced by ratmath’s precise interval/rational operations.

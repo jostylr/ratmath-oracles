@@ -1,6 +1,6 @@
-# Async Oracle Support Plan
+# Async Oracle Support Plan (IMPLEMENTED)
 
-## Overview
+> **Note**: This plan has been successfully implemented. For current API documentation, see [README.md](../README.md) and [docs/design.md](design.md).
 
 This document outlines the plan for adding async oracle support to ratreals. The goal is to allow oracles to perform asynchronous operations (like fetching data or running heavy computations) while maintaining a clean and unified API.
 

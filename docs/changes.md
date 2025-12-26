@@ -1,6 +1,20 @@
-# Allowing No-Prophecy Oracles — Plan & Tradeoffs
+# Async Oracle Architecture — Refactor & Migration
 
-This document sketches how to adapt the oracle pipeline to allow a fast, predicate-style decision that can answer "No" without computing a prophecy (interval). The motivating example is a sqrt(2) membership test: for a query interval `a:b` (expanded by `delta`), answer Yes if `2 ∈ a^2:b^2`; otherwise answer No without producing an interval.
+This document details the refactoring of the oracle system from a synchronous to a unified asynchronous architecture.
+
+## Summary of Changes
+1.  **Async Oracles**: All oracles now return `Promise<Answer>`. 
+    - This supports non-blocking mathematical refinement (e.g., iterative methods that take many cycles).
+    - Arithmetic operations return new async oracles that parallelize operand narrowing.
+2.  **Refactored Factories**: `makeOracle` was split into two primary patterns:
+    - `makeTestOracle`: For inclusion-test oracles (predicate-based).
+    - `makeAlgorithmOracle`: For algorithm-based oracles (refinement-based).
+3.  **State Serialisation**: Added `AsyncQueue` to ensure that concurrent narrowing requests to the same oracle are serialized, preventing race conditions on `oracle.yes`.
+4.  **Narrowing Updates**: `narrow(oracle, precision)` is now `async` and guarantees that `oracle.yes` is updated with the refined result.
+
+---
+
+# Allowing No-Prophecy Oracles — Plan & Tradeoffs (Old)
 
 ## Goals
 

@@ -1,19 +1,42 @@
 This library is designed around the idea that a real number is a rational betweenness relation, basically the set of all rational intervals that contain the real number. There are various properties it has to avoid the circular definition that was just given, but that need not concern us. What is of relevance is that we use oracles to figure out which intervals are Yes intervals, those rational intervals that contain the real number. Rational intervals are inclusive of the rational endpoints and are considered to just be the rational numbers inclusively between the endpoints. The intersection of two Yes intervals is a Yes interval. Thus, at any given time, if two Yes intervals is have been produced, the intersection of the two can potentially produce a smaller Yes interval.
 
-An oracle mathematically is an object that takes in a rational interval and a bit of fuzziness and outputs a Yes/No along with a rational interval guaranteed to contain the real number. The produced interval is called a prophecy. The answer is a Yes if the prophecy intersects the given rational interval and is contained within the fuzzy boundary of that given interval, e.g., if a <= b is the given rational interval, delta the rational fuzziness, then it is a Yes if the ouput prophecy interval c:d intersects a:b and is fully contained in (a-delta:b+delta) while it is a No if c:d does not intersect a:b. The task of the oracle is to find a sufficiently small prophecy to determine one or the other. In this way, No is definitive while Yes is a "good enough for now".
+An oracle mathematically is an object that takes in a rational interval and a bit of fuzziness and outputs a Yes/No along with a rational interval guaranteed to contain the real number. The produced interval is called a prophecy. The answer is a Yes if the prophecy intersects the given rational interval and is contained within the fuzzy boundary of that given interval, e.g., if a <= b is the given rational interval, delta the rational fuzziness, then it is a Yes if the output prophecy interval c:d intersects a:b and is fully contained in (a-delta:b+delta) while it is a No if c:d does not intersect a:b. The task of the oracle is to find a sufficiently small prophecy to determine one or the other. In this way, No is definitive while Yes is a "good enough for now".
 
-This library should provide a framework for programmatically realizing such oracles, particularly supporting arithmetic with them and providing the basic common examples that are usually worked with. All oracle operations are synchronous to behave like normal arithmetic; callers may wrap flows in async if desired.
+This library provides a framework for programmatically realizing such oracles. While building arithmetic chains is synchronous, the execution of the oracles (narrowing and querying) is asynchronous. This allows for complex, high-precision computations (like finding roots or deep chains) without blocking.
 
-Every oracle is a javacsript function that has the signature (ab:rational interval, delta:positive rational number, in:other) and gives an answer of (ans:boolean, cd: rational interval, out:other) where ans= true if cd intersects ab and is contained within the delta neighborhood of ab while it is false if cd is disjoint from ab. It should be one of those styled answers else it is an error. The in and out is extra info that some oracles may need; it is entirely optional and can be anything. Typically, the out is what can be fed into the next call as in. The function can also have various properties on itself that it can use. One property common to all is the yes property. This is an interval that is definitively known to be a Yes interval. A pluggable logger is used for warnings (defaulting to console.warn).
+Every oracle is an async javascript function with the signature `(ab: RationalInterval, delta: Rational, input?: any): Promise<Answer>`. The `Answer` is `[[status, prophecy], extra]`. 
+- `status`: 1 (Yes), 0 (No), -1 (Maybe/Ambiguous).
+- `prophecy`: The best known `RationalInterval` for the real value.
+- `extra`: Optional state for the next call.
 
-src/functions.tsx provides the basic set of functions that generate many real numbers in practice (roots, exponentials, logarithms) and should also provide generic methods such as Taylor series or differential equations for creating new functions that can be used to generate a real number oracle. It also includes the simple conversion of rationals to oracles, as well as converting rational intervals to a stub oracle. It also includes implementing an oracle given a proper interval testing function. 
+Every oracle also has a `yes` property: a `RationalInterval` that is definitive knowledge of the real number's location.
 
-src/narrowing.tsx runs the simple algorithm(s) for taking an oracle and producing ever smaller intervals. One such algorithm is the bisection of the Yes interval and testing the resulting intervals. A mediant algorithm can also be used that could also be used to generate a continued fraction representatoin.
+### Oracle Factories (`src/functions.ts`)
 
-src/arithmetic.tsx should facilitate the arithmetic of the oracles. This involves shrinking the input Yes intervals sufficiently such that the operation applied to the rational interval will give an interval which is sufficient to give an answer to the oracle. One can compute how small the input intervals need to be in order to compute the desired size for the output intervals.
+To simplify oracle creation, we provide targeted factory functions:
 
-src/continued-fractions.tsx facilitate the use of continued fractions with oracles. It allows for the input of a pattern for a continued fraction or a function that will produce it or simply the initial segment and then generating an oracle based on that. It also contains the ability to generate continued fractions from arithmetic operations using Gosper's algorithms.
+1. **`makeTestOracle(initialYes, testFn)`**: 
+   - Use this for oracles defined by an inclusion test (e.g., "Is the root in this interval?").
+   - `testFn` returns `Answer | Promise<Answer>`.
+   - Narrowing is performed automatically using generic bisection.
 
-src/parse.tsx should be a set of parsing rules for writing common math expressions and translating them into oracles. 
+2. **`makeAlgorithmOracle(initialYes, algFn)`**:
+   - Use this for oracles that implement a specific numerical algorithm (e.g., Newton's method).
+   - `algFn` directly provides a refined `RationalInterval`.
+   - The oracle function primarily answers based on the current interval and triggers `algFn` when the query is ambiguous.
 
-index.tsx gathers up all these functions and their exports and creates a unified interface for other systems to use. 
+3. **`makeOracle(yes, compute)`** (Legacy/Generic):
+   - A wrapper that maps a computation function to the algorithm oracle pattern.
+
+### Specialized Oracles (`src/rationals.ts`)
+- `singularOracle(q)`: Knowledge of a single point.
+- `reflexiveOracle(q)`: Simple inclusion test against `q`.
+- `fuzzyReflexiveOracle(q)`: Inclusion test with a expanded "yes" region.
+- `haloOracle(q)`: Answers "Yes" if the query intersects a small halo around `q`.
+- `bisectionOracle(target, initialGuess)`: Uses bisection to find `target`.
+
+### Narrowing (`src/narrowing.ts`)
+`narrow(oracle, precision)` is the main way to refine an oracle's knowledge. It is `async` and must be `await`ed. It calls the oracle's internal `narrowing` logic and updates the `oracle.yes` property.
+
+### Arithmetic (`src/arithmetic.ts`)
+Arithmetic operations (`add`, `subtract`, `multiply`, `divide`) return new async oracles. They coordinate the narrowing of their operands automatically to produce the desired output precision. Operations are parallelized where possible.
