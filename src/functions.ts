@@ -63,12 +63,28 @@ export function makeTestOracle(
         } else if (ansLeft[0][0] === 0) {
           active = rightHalf;
         } else {
-          // Unknown/Overlap. For now, pick intersection with prophecy if available?
-          // Or just fail to narrow?
-          // Let's assume right half if left is 0, else left? 
-          // If both are maybe, we can't easily bisect without more logic.
-          // Fallback: Just return current if we can't decide.
-          break;
+          // Left is ambiguous (-1). Check right.
+          const ansRight = await test(rightHalf);
+          if (ansRight[0][0] === 1) {
+            active = rightHalf;
+          } else if (ansRight[0][0] === 0) {
+            active = leftHalf;
+          } else {
+            // Both halves are ambiguous. Try the middle half (between quartiles).
+            // This handles cases where the root is near the midpoint.
+            const L1 = active.low.add(mid).divide(new Rational(2));
+            const R1 = mid.add(active.high).divide(new Rational(2));
+            const middleHalf = new RMInterval(L1, R1);
+
+            const ansMid = await test(middleHalf);
+            if (ansMid[0][0] === 1) {
+              active = middleHalf;
+            } else {
+              // The test is failing to be decisive even for an interval containing the suspected point.
+              console.warn(`[makeTestOracle] Bisection stuck: Left, Right, and Middle are all ambiguous at width ${w.toString()}`);
+              break;
+            }
+          }
         }
 
         w = active.high.subtract(active.low);
