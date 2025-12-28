@@ -21,12 +21,12 @@ export function makeTestOracle(
   const oracle = (async (ab: RationalInterval, delta: Rational, input?: any): Promise<Answer> => {
     // 1. Check against current Yes (fast path)
     const currentYes = oracle.yes;
-    if (halo(ab, delta).contains(currentYes)) {
-      return [[1, currentYes], null];
-    }
     const inter = ab.intersection(currentYes);
     if (inter === null) {
       return [[0, currentYes], null];
+    }
+    if (halo(ab, delta).contains(currentYes)) {
+      return [[1, currentYes], null];
     }
 
     // 2. If ambiguous, run the test function
@@ -114,8 +114,8 @@ export function makeAlgorithmOracle(
     const currentYes = oracle.yes;
 
     // Fast checks
-    if (halo(ab, delta).contains(currentYes)) return [[1, currentYes], null];
     if (ab.intersection(currentYes) === null) return [[0, currentYes], null];
+    if (halo(ab, delta).contains(currentYes)) return [[1, currentYes], null];
 
     // Ambiguous (Intersects but not contained in halo). 
     // We MUST narrow to resolve the query.
