@@ -101,20 +101,24 @@ export function makeAlgorithmOracle(
     if (halo(ab, delta).contains(currentYes)) return [[1, currentYes], null];
     if (ab.intersection(currentYes) === null) return [[0, currentYes], null];
 
-    // Ambiguous. Try to narrow?
-    // If the current width is much larger than delta, we should narrow.
-    const w = currentYes.high.subtract(currentYes.low);
-    if (w.greaterThan(delta)) {
-      // Refine to delta
-      const refined = await oracle.narrowing!(currentYes, delta);
-      // Re-check
-      if (halo(ab, delta).contains(refined)) return [[1, refined], null];
-      if (ab.intersection(refined) === null) return [[0, refined], null];
-      // Still ambiguous?
-      return [[-1, refined], null];
+    // Ambiguous (Intersects but not contained in halo). 
+    // We MUST narrow to resolve the query.
+    // We use 'delta' as the target, as any interval of width <= delta 
+    // that intersects 'ab' is guaranteed to be contained in halo(ab, delta).
+    const refined = await oracle.narrowing!(currentYes, delta);
+
+    // Re-check after narrowing
+    if (halo(ab, delta).contains(refined)) return [[1, refined], null];
+    if (ab.intersection(refined) === null) return [[0, refined], null];
+
+    // If still ambiguous, the narrowing failed to reach target precision.
+    const finalWidth = refined.high.subtract(refined.low);
+    if (finalWidth.greaterThan(delta)) {
+      console.warn(`[Oracle] Narrowing failed to reach target delta: ${delta.toString()}. Current width: ${finalWidth.toString()}`);
     }
 
-    return [[-1, currentYes], null];
+    // Return Maybe/Ambiguous
+    return [[-1, refined], null];
   }) as Oracle;
 
   oracle.yes = initialYes;
