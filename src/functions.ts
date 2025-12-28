@@ -30,7 +30,15 @@ export function makeTestOracle(
     }
 
     // 2. If ambiguous, run the test function
-    return test(ab);
+    const result = await test(ab);
+    if (result[0][0] === 1 && result[0][1]) {
+      const intersection = oracle.yes.intersection(result[0][1]);
+      if (intersection === null) {
+        throw new Error(`Oracle Consistency Error: Test produced a prophecy ${result[0][1].toString()} disjoint from current knowledge ${oracle.yes.toString()}`);
+      }
+      oracle.yes = intersection;
+    }
+    return result;
   }) as Oracle;
 
   oracle.yes = initialYes;
