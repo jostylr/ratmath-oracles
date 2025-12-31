@@ -9,8 +9,25 @@ export type ComputeFnWithState = ((ab: RationalInterval, delta: Rational) => Rat
 
 // --- New Factories ---
 
-// makeTestOracle: The user provides a test function that answers "Yes/No/Maybe" (Answer) for a given interval.
-// The narrowing strategy is generic bisection.
+/**
+ * makeTestOracle: Creates an oracle from a test function.
+ * 
+ * The test function `test(i)` should return:
+ * - 1 (Yes) if the interval `i` definitively contains the real number.
+ * - 0 (No) if the interval `i` definitively does not contain the real number.
+ * - -1 (Maybe) only if the real number is potentially an endpoint of `i` (within precision limits).
+ * 
+ * Logic of the resulting Oracle:
+ * 1. Checks current known `yes` interval. If disjoint from `ab`, returns No. 
+ *    If `yes` is contained in `halo(ab, delta)`, returns Yes.
+ * 2. Calls `test(ab)`.
+ * 3. If `test(ab)` is ambiguous (-1), calls `test(halo(ab, delta))`.
+ * 4. If result is Yes (1): updates `yes` by intersecting with the test prophecy and returns Yes.
+ *    Returning 1 for `(ab, delta)` definitively states that `halo(ab, delta)` is a Yes-interval, 
+ *    though `ab` itself might not be.
+ * 5. If result is No (0): returns No.
+ * 6. If result is still Ambiguous (-1) for the halo, an error is thrown indicating precision limitation.
+ */
 export function makeTestOracle(
   initialYes: RationalInterval,
   test: (ab: RationalInterval) => Answer | Promise<Answer>
@@ -29,16 +46,29 @@ export function makeTestOracle(
       return [[1, currentYes], null];
     }
 
-    // 2. If ambiguous, run the test function
-    const result = await test(ab);
-    if (result[0][0] === 1 && result[0][1]) {
-      const intersection = oracle.yes.intersection(result[0][1]);
+    // 2. Run the test function
+    let result = await test(ab);
+
+    // If ambiguous, try the halo
+    if (result[0][0] === -1) {
+      result = await test(halo(ab, delta));
+      if (result[0][0] === -1) {
+        throw new Error(`Precision limitation in test function: both query ${ab.toString()} and its halo returned Maybe. Endpoints likely hit computational limits.`);
+      }
+    }
+
+    // Process final result (1 or 0)
+    if (result[0][0] === 1) {
+      const prophecy = result[0][1] || ab; // Use prophecy from test or fall back to ab
+      const intersection = oracle.yes.intersection(prophecy);
       if (intersection === null) {
-        throw new Error(`Oracle Consistency Error: Test produced a prophecy ${result[0][1].toString()} disjoint from current knowledge ${oracle.yes.toString()}`);
+        throw new Error(`Oracle Consistency Error: Test produced a prophecy ${prophecy.toString()} disjoint from current knowledge ${oracle.yes.toString()}`);
       }
       oracle.yes = intersection;
+      return [[1, oracle.yes], result[1]];
+    } else {
+      return [[0, currentYes], result[1]];
     }
-    return result;
   }) as Oracle;
 
   oracle.yes = initialYes;
@@ -106,8 +136,21 @@ export function makeTestOracle(
   return oracle;
 }
 
-// makeAlgorithmOracle: The user provides an algorithm that shrinks the interval.
-// The test is just "Does the query interval contain the (halo of) the current valid interval?"
+/**
+ * makeAlgorithmOracle: Creates an oracle from a numerical refinement algorithm.
+ * 
+ * The algorithm function `alg(current, precision)` should return:
+ * - A new `RationalInterval` that is a sub-interval of `current` and contains the real number.
+ * - The goal width of the result should be approximately `precision`.
+ * 
+ * Logic of the resulting Oracle:
+ * 1. Checks current known `yes` interval. If disjoint from query `ab`, returns No.
+ *    If `yes` is contained in `halo(ab, delta)`, returns Yes.
+ * 2. If the query is ambiguous, it triggers the `narrowing` method (the algorithm) to refine
+ *    the internal knowledge to at least `delta` precision.
+ * 3. After narrowing, it re-checks the query.
+ * 4. Returns Yes, No, or Maybe based on the refined state.
+ */
 export function makeAlgorithmOracle(
   initialYes: RationalInterval,
   alg: (current: RationalInterval, precision: Rational) => Promise<RationalInterval>
