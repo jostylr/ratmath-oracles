@@ -1,5 +1,5 @@
 {
-  "name": "ratreals",
+  "name": "@ratmath/oracles",
   "version": "0.1.0",
   "description": "This package supports representing real numbers as functions that take in a rational interval and either affirm or deny the presence of the real number in the interval. It uses the library ratmath for the rational interval arithmetic. ",
   "keywords": [
@@ -8,13 +8,13 @@
     "rational",
     "arithmetic"
   ],
-  "homepage": "https://github.com/jostylr/ratreals#readme",
+  "homepage": "https://github.com/jostylr/ratmath-oracles#readme",
   "bugs": {
-    "url": "https://github.com/jostylr/ratreals/issues"
+    "url": "https://github.com/jostylr/ratmath-oracles/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jostylr/ratreals.git"
+    "url": "git+https://github.com/jostylr/ratmath-oracles.git"
   },
   "license": "MIT",
   "author": "jostylr",
@@ -33,7 +33,7 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
-    "ratmath": "git@github.com:jostylr/ratmath.git"
+    "@ratmath/core": "0.2.0"
   },
   "devDependencies": {
     "@types/bun": "^1.3.5",
