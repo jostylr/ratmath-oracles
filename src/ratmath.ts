@@ -1,7 +1,7 @@
 // Central exports for ratmath library
 // Import all ratmath types and re-export them for consistent usage across the codebase
 
-import { Rational, RationalInterval } from 'ratmath';
+import { Rational, RationalInterval } from '@ratmath/core';
 
 // Re-export the main classes
 export { Rational, RationalInterval };

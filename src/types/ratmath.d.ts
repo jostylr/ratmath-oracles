@@ -1,7 +1,7 @@
 // Type declarations for ratmath library
 // This file provides TypeScript type definitions for Rational and RationalInterval classes
 
-declare module 'ratmath' {
+declare module '@ratmath/core' {
   export class Rational {
     constructor(numerator: number | bigint, denominator?: number | bigint);
     
