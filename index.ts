@@ -8,3 +8,5 @@ export * from './src/rationals';
 export * from './src/properties';
 export * from './src/helpers';
 export * from './src/ratmath';
+export * from './src/continued-fractions';
+export * from './src/roots';

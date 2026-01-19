@@ -6,7 +6,6 @@ import { Rational, RationalInterval } from '../ratmath';
 // status: 1 (Yes), 0 (No), -1 (Maybe/Abort)
 export type Answer = [[1 | 0 | -1, RationalInterval?], any];
 
-export interface Oracle {
 export type OracleResult = Answer | Promise<Answer>;
 
 export interface Oracle {

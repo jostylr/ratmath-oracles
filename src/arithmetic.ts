@@ -1,11 +1,21 @@
-import { type Oracle, type RationalInterval } from './types';
+import { type Oracle, type RationalInterval, isOracle, isRational, isRationalInterval } from './types';
 import { Rational, RationalInterval as RMInterval } from './ratmath';
 import { addIntervals, containsZero, divIntervals, mulIntervals, subIntervals, getMagnitude, getMinMagnitude } from './ops';
 import { getLogger } from './logger';
 import { narrow } from './narrowing';
-import { makeOracle } from './functions';
+import { makeOracle, fromRational, fromInterval } from './functions';
 
-export function negate(a: Oracle): Oracle {
+export type OracleLike = Oracle | Rational | RationalInterval;
+
+export function toOracle(x: OracleLike): Oracle {
+  if (isOracle(x)) return x;
+  if (isRational(x)) return fromRational(x);
+  if (isRationalInterval(x)) return fromInterval(x);
+  throw new Error(`Cannot convert to Oracle: ${x}`);
+}
+
+export function negate(a: OracleLike): Oracle {
+  a = toOracle(a);
   const yes = (a.yes as RMInterval).negate();
   return makeOracle(yes, async (target: RationalInterval, delta: Rational) => {
     // Refine operand to half delta
@@ -15,7 +25,9 @@ export function negate(a: Oracle): Oracle {
   });
 }
 
-export function add(a: Oracle, b: Oracle): Oracle {
+export function add(a: OracleLike, b: OracleLike): Oracle {
+  a = toOracle(a);
+  b = toOracle(b);
   const yes = addIntervals(a.yes, b.yes);
   return makeOracle(yes, async (_target, delta) => {
     // Refine both operands to half the delta (conservative)
@@ -28,7 +40,9 @@ export function add(a: Oracle, b: Oracle): Oracle {
   });
 }
 
-export function subtract(a: Oracle, b: Oracle): Oracle {
+export function subtract(a: OracleLike, b: OracleLike): Oracle {
+  a = toOracle(a);
+  b = toOracle(b);
   const yes = subIntervals(a.yes, b.yes);
   return makeOracle(yes, async (_target, delta) => {
     const subDelta = delta.divide(new Rational(2));
@@ -40,7 +54,9 @@ export function subtract(a: Oracle, b: Oracle): Oracle {
   });
 }
 
-export function multiply(a: Oracle, b: Oracle): Oracle {
+export function multiply(a: OracleLike, b: OracleLike): Oracle {
+  a = toOracle(a);
+  b = toOracle(b);
   const yes = mulIntervals(a.yes, b.yes);
   return makeOracle(yes, async (_target, delta) => {
     // Multiplication error propagation: |Δ(ab)| ≈ |a|Δb + |b|Δa
@@ -64,7 +80,9 @@ export function multiply(a: Oracle, b: Oracle): Oracle {
   });
 }
 
-export function divide(numer: Oracle, denom: Oracle): Oracle {
+export function divide(numer: OracleLike, denom: OracleLike): Oracle {
+  numer = toOracle(numer);
+  denom = toOracle(denom);
   const dYes = denom.yes;
   if (dYes.low.equals(Rational.zero) && dYes.high.equals(Rational.zero)) {
     throw new Error('Division by zero: denominator known to be zero');
