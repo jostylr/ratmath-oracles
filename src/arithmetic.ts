@@ -5,12 +5,44 @@ import { getLogger } from './logger';
 import { narrow } from './narrowing';
 import { makeOracle, fromRational, fromInterval } from './functions';
 
-export type OracleLike = Oracle | Rational | RationalInterval;
+export type OracleLike = Oracle | Rational | RationalInterval | number | bigint | string;
+
+function toRational(x: any): Rational {
+  if (x instanceof Rational) return x;
+  if (typeof x === 'number') return new Rational(x);
+  if (typeof x === 'bigint') return new Rational(x);
+  if (typeof x === 'string') return new Rational(x as any); // Rational accepts strings at runtime
+  // Handle Integer type from parser (check constructor name for cross-module compatibility)
+  if (x && x.constructor && x.constructor.name === 'Integer') {
+    const val = x.value;
+    if (typeof val === 'bigint') {
+      return new Rational(val);
+    }
+  }
+  // Handle objects with value property (like Integer)
+  if (x && typeof x.value === 'bigint') {
+    return new Rational(x.value);
+  }
+  if (x && typeof x.numerator !== 'undefined' && typeof x.denominator !== 'undefined') {
+    return new Rational(x.numerator, x.denominator);
+  }
+  throw new Error(`Cannot convert to Rational: ${x}`);
+}
 
 export function toOracle(x: OracleLike): Oracle {
   if (isOracle(x)) return x;
   if (isRational(x)) return fromRational(x);
   if (isRationalInterval(x)) return fromInterval(x);
+  if (typeof x === 'number' || typeof x === 'bigint' || typeof x === 'string') {
+    return fromRational(toRational(x));
+  }
+  // Handle Integer type from parser
+  if (x && (x as any).constructor && (x as any).constructor.name === 'Integer') {
+    return fromRational(toRational(x));
+  }
+  if (x && typeof (x as any).value === 'bigint') {
+    return fromRational(toRational(x));
+  }
   throw new Error(`Cannot convert to Oracle: ${x}`);
 }
 

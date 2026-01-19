@@ -24,4 +24,10 @@ export interface Oracle {
   /* Optional narrowing function that can be used instead of bisection.
      Should return a more precise interval containing the value. */
   narrowing?: (current: RationalInterval, precision: Rational) => RationalInterval | Promise<RationalInterval>;
+  /* Arithmetic methods for natural syntax support (a + b, a * b, etc) */
+  add?: (other: any) => Oracle;
+  subtract?: (other: any) => Oracle;
+  multiply?: (other: any) => Oracle;
+  divide?: (other: any) => Oracle;
+  negate?: () => Oracle;
 }

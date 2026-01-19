@@ -14,6 +14,49 @@ import {
   type ContinuedFractionStream
 } from './continued-fractions';
 
+// Convert parser output types (RationalInterval, Integer, etc.) to Rational
+function toRationalFromParser(x: any): Rational {
+  if (x instanceof Rational) return x;
+  // Handle RationalInterval - use midpoint or low if it's a point interval
+  if (x instanceof RationalInterval) {
+    // If it's a point interval, use that value
+    if (x.low.equals(x.high)) return x.low;
+    // Otherwise use midpoint
+    return x.low.add(x.high).divide(new Rational(2));
+  }
+  // Handle Integer type from parser (check constructor name for cross-module compatibility)
+  if (x && x.constructor && x.constructor.name === 'Integer') {
+    const val = x.value;
+    if (typeof val === 'bigint') {
+      return new Rational(val);
+    }
+  }
+  // Handle Integer type from parser (check for value property)
+  if (x && typeof x.value === 'bigint') {
+    return new Rational(x.value);
+  }
+  // Handle raw types
+  if (typeof x === 'number') return new Rational(BigInt(Math.floor(x)));
+  if (typeof x === 'bigint') return new Rational(x);
+  // Try direct construction as last resort
+  try {
+    return new Rational(x);
+  } catch {
+    throw new Error(`Cannot convert to Rational: ${typeof x} ${x}`);
+  }
+}
+
+// Attach arithmetic methods to an oracle for natural syntax support (a + b, a * b, etc)
+function withArithmetic(oracle: any): any {
+  if (!oracle || typeof oracle !== 'function') return oracle;
+  oracle.add = (other: any) => withArithmetic(add(oracle, other));
+  oracle.subtract = (other: any) => withArithmetic(subtract(oracle, other));
+  oracle.multiply = (other: any) => withArithmetic(multiply(oracle, other));
+  oracle.divide = (other: any) => withArithmetic(divide(oracle, other));
+  oracle.negate = () => withArithmetic(negate(oracle));
+  return oracle;
+}
+
 function getPrecision(context: any, prec?: any): Rational {
   if (prec !== undefined) {
     if (prec instanceof Rational) return prec;
@@ -38,19 +81,16 @@ export const functions = {
   "Oracle": {
     type: 'js',
     body: function(this: any, x: any) {
-      if (x instanceof Rational) return fromRational(x);
-      if (x instanceof RationalInterval) return fromInterval(x);
-      if (isOracle(x)) return x;
-      throw new Error("Oracle expects a Rational, RationalInterval, or Oracle");
+      return withArithmetic(toOracle(x));
     },
     params: ["x"],
-    doc: "Creates an oracle from a Rational or RationalInterval"
+    doc: "Creates an oracle from a number, Rational, RationalInterval, or Oracle"
   },
 
   "OracleAdd": {
     type: 'js',
     body: function(this: any, a: any, b: any) {
-      return add(a, b);
+      return withArithmetic(add(a, b));
     },
     params: ["a", "b"],
     doc: "Adds two oracles (auto-converts Rational/RationalInterval to Oracle)"
@@ -59,7 +99,7 @@ export const functions = {
   "OracleSub": {
     type: 'js',
     body: function(this: any, a: any, b: any) {
-      return subtract(a, b);
+      return withArithmetic(subtract(a, b));
     },
     params: ["a", "b"],
     doc: "Subtracts oracle b from oracle a"
@@ -68,7 +108,7 @@ export const functions = {
   "OracleMul": {
     type: 'js',
     body: function(this: any, a: any, b: any) {
-      return multiply(a, b);
+      return withArithmetic(multiply(a, b));
     },
     params: ["a", "b"],
     doc: "Multiplies two oracles"
@@ -77,7 +117,7 @@ export const functions = {
   "OracleDiv": {
     type: 'js',
     body: function(this: any, a: any, b: any) {
-      return divide(a, b);
+      return withArithmetic(divide(a, b));
     },
     params: ["a", "b"],
     doc: "Divides oracle a by oracle b"
@@ -86,7 +126,7 @@ export const functions = {
   "OracleNeg": {
     type: 'js',
     body: function(this: any, a: any) {
-      return negate(a);
+      return withArithmetic(negate(a));
     },
     params: ["a"],
     doc: "Negates an oracle"
@@ -117,9 +157,9 @@ export const functions = {
   "Sqrt": {
     type: 'js',
     body: function(this: any, x: any) {
-      const q = x instanceof Rational ? x : new Rational(x);
+      const q = toRationalFromParser(x);
       const guess = new Rational(1);
-      return nRoot(q, guess, 2);
+      return withArithmetic(nRoot(q, guess, 2));
     },
     params: ["x"],
     doc: "Creates a square root oracle using Newton's method"
@@ -127,10 +167,12 @@ export const functions = {
 
   "NRoot": {
     type: 'js',
-    body: function(this: any, x: any, n: number) {
-      const q = x instanceof Rational ? x : new Rational(x);
+    body: function(this: any, x: any, n: any) {
+      const q = toRationalFromParser(x);
+      const nVal = toRationalFromParser(n);
+      const nNum = Number(nVal.numerator / nVal.denominator);
       const guess = new Rational(1);
-      return nRoot(q, guess, n);
+      return withArithmetic(nRoot(q, guess, nNum));
     },
     params: ["x", "n"],
     doc: "Creates an nth root oracle using Newton's method"
@@ -139,7 +181,7 @@ export const functions = {
   "CFSqrt2": {
     type: 'js',
     body: function(this: any) {
-      return oracleFromCF(cfSqrt2());
+      return withArithmetic(oracleFromCF(cfSqrt2()));
     },
     params: [],
     doc: "Creates an oracle for sqrt(2) from its continued fraction [1; 2, 2, 2, ...]"
@@ -148,7 +190,7 @@ export const functions = {
   "CFE": {
     type: 'js',
     body: function(this: any) {
-      return oracleFromCF(cfE());
+      return withArithmetic(oracleFromCF(cfE()));
     },
     params: [],
     doc: "Creates an oracle for e from its continued fraction"
@@ -157,7 +199,7 @@ export const functions = {
   "CFPhi": {
     type: 'js',
     body: function(this: any) {
-      return oracleFromCF(cfPhi());
+      return withArithmetic(oracleFromCF(cfPhi()));
     },
     params: [],
     doc: "Creates an oracle for the golden ratio from its continued fraction [1; 1, 1, 1, ...]"
@@ -167,7 +209,7 @@ export const functions = {
     type: 'js',
     body: function(this: any, terms: bigint[]) {
       const stream = cfFromTerms(terms);
-      return oracleFromCF(stream);
+      return withArithmetic(oracleFromCF(stream));
     },
     params: ["terms"],
     doc: "Creates an oracle from an array of continued fraction terms"
@@ -180,6 +222,40 @@ export const functions = {
     },
     params: ["cf", "n"],
     doc: "Computes the nth convergent of a continued fraction stream"
+  },
+
+  "Ask": {
+    type: 'js',
+    body: async function(this: any, oracle: any, interval: any, delta?: any) {
+      const o = withArithmetic(toOracle(oracle));
+      const precision = getPrecision(this, delta);
+      
+      // Narrow the oracle to the given precision
+      const yesInterval = await narrow(o, precision);
+      
+      // Convert interval argument to RationalInterval
+      let queryInterval: RationalInterval;
+      if (interval instanceof RationalInterval) {
+        queryInterval = interval;
+      } else if (interval instanceof Rational) {
+        queryInterval = new RationalInterval(interval, interval);
+      } else if (typeof interval === 'number' || typeof interval === 'bigint') {
+        const r = new Rational(interval as any);
+        queryInterval = new RationalInterval(r, r);
+      } else {
+        throw new Error("Ask expects interval to be a RationalInterval or Rational");
+      }
+      
+      // Check if yesInterval intersects or is disjoint from queryInterval
+      const intersection = yesInterval.intersection(queryInterval);
+      if (intersection !== null) {
+        return 1; // Yes - oracle's yes interval intersects query
+      } else {
+        return 0; // No - disjoint
+      }
+    },
+    params: ["oracle", "interval", "delta?"],
+    doc: "Ask if oracle's value is in interval (with fuzziness delta). Returns 1 if yes, 0 if no."
   }
 };
 
