@@ -256,6 +256,41 @@ export const functions = {
     },
     params: ["oracle", "interval", "delta?"],
     doc: "Ask if oracle's value is in interval (with fuzziness delta). Returns 1 if yes, 0 if no."
+  },
+
+  "Estimate": {
+    type: 'js',
+    body: async function(this: any, oracle: any, precision?: any) {
+      const o = withArithmetic(toOracle(oracle));
+      
+      // Get precision - default to 1E-2 if not specified and _precision not set
+      let prec: Rational;
+      if (precision !== undefined) {
+        prec = toRationalFromParser(precision);
+      } else if (this && this.variables && this.variables.has('_precision')) {
+        prec = this.variables.get('_precision');
+      } else {
+        prec = new Rational(1, 100); // 1E-2 = 0.01
+      }
+      
+      // Narrow the oracle to the specified precision
+      const yesInterval = await narrow(o, prec);
+      
+      // Return the midpoint as a decimal string
+      const low = yesInterval.low;
+      const high = yesInterval.high;
+      const midpoint = low.add(high).divide(new Rational(2));
+      
+      // Convert to decimal string with appropriate precision
+      // Calculate significant digits based on precision
+      const precNum = Number(prec.numerator) / Number(prec.denominator);
+      const digits = Math.max(2, Math.ceil(-Math.log10(precNum)) + 1);
+      
+      const numValue = Number(midpoint.numerator) / Number(midpoint.denominator);
+      return { type: 'string', value: numValue.toFixed(digits) };
+    },
+    params: ["oracle", "precision?"],
+    doc: "Estimate oracle value as a decimal number. Uses _precision or defaults to 0.01."
   }
 };
 
