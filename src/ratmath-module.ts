@@ -258,6 +258,35 @@ export const functions = {
     doc: "Ask if oracle's value is in interval (with fuzziness delta). Returns 1 if yes, 0 if no."
   },
 
+  "Midpoint": {
+    type: 'js',
+    body: async function(this: any, oracle: any, precision?: any) {
+      const o = withArithmetic(toOracle(oracle));
+      
+      // Get precision - default to 1E-2 if not specified and _precision not set
+      let prec: Rational;
+      if (precision !== undefined) {
+        prec = toRationalFromParser(precision);
+      } else if (this && this.variables && this.variables.has('_precision')) {
+        prec = this.variables.get('_precision');
+      } else {
+        prec = new Rational(1, 100); // 1E-2 = 0.01
+      }
+      
+      // Narrow the oracle to the specified precision
+      const yesInterval = await narrow(o, prec);
+      
+      // Return the midpoint as a Rational
+      const low = yesInterval.low;
+      const high = yesInterval.high;
+      const midpoint = low.add(high).divide(new Rational(2));
+      
+      return midpoint;
+    },
+    params: ["oracle", "precision?"],
+    doc: "Return exact midpoint of oracle's narrowed Yes interval as a Rational."
+  },
+
   "Estimate": {
     type: 'js',
     body: async function(this: any, oracle: any, precision?: any) {
@@ -276,21 +305,115 @@ export const functions = {
       // Narrow the oracle to the specified precision
       const yesInterval = await narrow(o, prec);
       
-      // Return the midpoint as a decimal string
       const low = yesInterval.low;
       const high = yesInterval.high;
-      const midpoint = low.add(high).divide(new Rational(2));
       
-      // Convert to decimal string with appropriate precision
-      // Calculate significant digits based on precision
+      // Find a decimal (power of 10 denominator) that fits in the interval
+      // Start with precision-based power of 10
       const precNum = Number(prec.numerator) / Number(prec.denominator);
-      const digits = Math.max(2, Math.ceil(-Math.log10(precNum)) + 1);
+      let power = Math.ceil(-Math.log10(precNum));
       
-      const numValue = Number(midpoint.numerator) / Number(midpoint.denominator);
-      return { type: 'string', value: numValue.toFixed(digits) };
+      // Try to find a decimal that fits in [low, high]
+      for (let attempt = 0; attempt < 20; attempt++) {
+        const denom = BigInt(10) ** BigInt(power);
+        const denomRat = new Rational(denom);
+        
+        // Find the floor and ceiling of low and high scaled by denom
+        const lowScaled = low.multiply(denomRat);
+        const highScaled = high.multiply(denomRat);
+        
+        // Get integer bounds
+        const lowInt = lowScaled.numerator / lowScaled.denominator;
+        const highInt = highScaled.numerator / highScaled.denominator;
+        
+        // Check if there's an integer in [lowScaled, highScaled]
+        const lowCeil = lowScaled.numerator % lowScaled.denominator === 0n 
+          ? lowInt 
+          : lowInt + 1n;
+        
+        if (lowCeil <= highInt) {
+          // Found a decimal that fits: lowCeil / denom
+          return new Rational(lowCeil, denom);
+        }
+        
+        // Need more precision
+        power++;
+      }
+      
+      // Fallback to midpoint if no decimal found (shouldn't happen)
+      return low.add(high).divide(new Rational(2));
     },
     params: ["oracle", "precision?"],
-    doc: "Estimate oracle value as a decimal number. Uses _precision or defaults to 0.01."
+    doc: "Return a terminating decimal (power of 10 denominator) within the Yes interval."
+  },
+
+  "Mediant": {
+    type: 'js',
+    body: async function(this: any, oracle: any, precision?: any) {
+      const o = withArithmetic(toOracle(oracle));
+      
+      // Get precision for narrowing
+      let prec: Rational;
+      if (precision !== undefined) {
+        prec = toRationalFromParser(precision);
+      } else if (this && this.variables && this.variables.has('_precision')) {
+        prec = this.variables.get('_precision');
+      } else {
+        prec = new Rational(1, 100);
+      }
+      
+      // Narrow the oracle to get the Yes interval
+      const yesInterval = await narrow(o, prec);
+      const low = yesInterval.low;
+      const high = yesInterval.high;
+      
+      // Farey mediant search
+      // Start with 0/1 and 1/0 (infinity) as initial Farey pair
+      // But we need to handle the general case, so use wider bounds
+      
+      // Find initial Farey pair containing the interval
+      // Use floor(low) and ceil(high) + 1 as bounds
+      const lowNum = Number(low.numerator) / Number(low.denominator);
+      const highNum = Number(high.numerator) / Number(high.denominator);
+      
+      let leftNum = BigInt(Math.floor(lowNum));
+      let leftDen = 1n;
+      let rightNum = BigInt(Math.ceil(highNum)) + 1n;
+      let rightDen = 1n;
+      
+      // Maximum iterations to prevent infinite loops
+      const maxIterations = 1000;
+      
+      for (let i = 0; i < maxIterations; i++) {
+        // Compute mediant
+        const medNum = leftNum + rightNum;
+        const medDen = leftDen + rightDen;
+        const mediant = new Rational(medNum, medDen);
+        
+        // Check if mediant is in [low, high]
+        const inInterval = mediant.compareTo(low) >= 0 && mediant.compareTo(high) <= 0;
+        
+        if (inInterval) {
+          return mediant;
+        }
+        
+        // Mediant not in interval - choose which half to continue with
+        if (mediant.compareTo(low) < 0) {
+          // Mediant is below interval, search right half
+          leftNum = medNum;
+          leftDen = medDen;
+        } else {
+          // Mediant is above interval, search left half
+          rightNum = medNum;
+          rightDen = medDen;
+        }
+      }
+      
+      // Fallback: return the last mediant computed
+      return new Rational(leftNum + rightNum, leftDen + rightDen);
+    },
+    params: ["oracle", "precision?"],
+    doc: "Return the simplest rational (smallest Farey mediant) within the Yes interval."
   }
 };
 
