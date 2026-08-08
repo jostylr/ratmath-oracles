@@ -31,7 +31,10 @@ declare module '@ratmath/core' {
     toMixedString(): string;
     toNumber(): number;
     toDecimal(precision?: number): string;
-    toRepeatingDecimal(): string;
+    toRepeatingDecimal(
+      limit?: number,
+      onLimit?: 'trunc' | 'null' | 'error'
+    ): string | null;
     toScientificNotation(): string;
     toContinuedFraction(): number[];
     toContinuedFractionString(): string;
@@ -71,7 +74,11 @@ declare module '@ratmath/core' {
     // Utility methods
     toString(): string;
     toMixedString(): string;
-    toRepeatingDecimal(): string;
+    toRepeatingDecimal(options?: boolean | {
+      useRepeatNotation?: boolean;
+      limit?: number;
+      onLimit?: 'trunc' | 'null' | 'error';
+    }): string | null;
     compactedDecimalInterval(): string;
     relativeMidDecimalInterval(): string;
     relativeDecimalInterval(): string;
